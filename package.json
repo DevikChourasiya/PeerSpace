@@ -18,6 +18,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:api": "npm run test --workspace=@peerspace/api",
     "test:web": "npm run test --workspace=@peerspace/web",
+    "provision:admin": "npm run provision:admin --workspace=@peerspace/api --",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "format:check": "prettier --check .",
     "format": "prettier --write ."

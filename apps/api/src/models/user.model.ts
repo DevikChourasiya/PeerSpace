@@ -8,6 +8,9 @@ export interface IUser extends Document {
   passwordHash: string;
   role: UserRole;
   status: UserStatus;
+  statusReason?: string;
+  statusUpdatedAt?: Date;
+  statusUpdatedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -57,6 +60,18 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
       default: UserStatus.PENDING,
       required: true,
       index: true,
+    },
+    statusReason: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+    statusUpdatedAt: {
+      type: Date,
+    },
+    statusUpdatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
     },
   },
   {

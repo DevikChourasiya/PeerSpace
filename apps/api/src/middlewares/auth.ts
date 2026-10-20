@@ -106,27 +106,30 @@ export const requireApprovedMembership = (
     return;
   }
 
-  if (req.user.status === UserStatus.PENDING) {
-    res.status(403).json({
-      success: false,
-      error: {
-        code: 'MEMBERSHIP_PENDING',
-        message:
-          'Your account membership is currently pending approval by an instructor or administrator.',
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-      },
-    });
-    return;
-  }
+  if (req.user.status !== UserStatus.ACTIVE) {
+    const isPending = req.user.status === UserStatus.PENDING;
+    const isSuspended = req.user.status === UserStatus.SUSPENDED;
+    const isRejected = req.user.status === UserStatus.REJECTED;
 
-  if (req.user.status === UserStatus.SUSPENDED) {
+    let code = 'MEMBERSHIP_NOT_ACTIVE';
+    let message = 'Your account is not approved for membership access.';
+
+    if (isPending) {
+      code = 'MEMBERSHIP_PENDING';
+      message = 'Your account is pending approval by an instructor or administrator.';
+    } else if (isSuspended) {
+      code = 'ACCOUNT_SUSPENDED';
+      message = 'Your account has been suspended. Please contact an administrator.';
+    } else if (isRejected) {
+      code = 'MEMBERSHIP_REJECTED';
+      message = 'Your account registration was declined by an administrator.';
+    }
+
     res.status(403).json({
       success: false,
       error: {
-        code: 'ACCOUNT_SUSPENDED',
-        message: 'Your account has been suspended. Please contact system administrators.',
+        code,
+        message,
       },
       meta: {
         timestamp: new Date().toISOString(),

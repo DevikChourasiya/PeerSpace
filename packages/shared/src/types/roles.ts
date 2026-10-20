@@ -10,6 +10,7 @@ export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 export const UserStatus = {
   PENDING: 'pending',
   ACTIVE: 'active',
+  REJECTED: 'rejected',
   SUSPENDED: 'suspended',
 } as const;
 

@@ -1,0 +1,407 @@
+import type { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
+import { UserRole, UserStatus, MembershipActionSchema } from '@peerspace/shared';
+import { User } from '../models/user.model.js';
+
+export const getPendingStudents = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const students = await User.find({
+      role: UserRole.STUDENT,
+      status: UserStatus.PENDING,
+    })
+      .select('name email role status createdAt statusReason')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: students.length,
+      students: students.map((student) => ({
+        id: student._id.toString(),
+        name: student.name,
+        email: student.email,
+        role: student.role,
+        status: student.status,
+        createdAt: student.createdAt,
+        statusReason: student.statusReason,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAllMembers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const filter: Record<string, unknown> = {};
+    if (req.query.status && typeof req.query.status === 'string') {
+      const statusVal = req.query.status.toLowerCase();
+      if (Object.values(UserStatus).includes(statusVal as UserStatus)) {
+        filter.status = statusVal;
+      }
+    }
+
+    const members = await User.find(filter)
+      .select('name email role status createdAt updatedAt statusReason')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: members.length,
+      members: members.map((m) => ({
+        id: m._id.toString(),
+        name: m.name,
+        email: m.email,
+        role: m.role,
+        status: m.status,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+        statusReason: m.statusReason,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const approveStudent = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_USER_ID',
+          message: 'The supplied user ID is invalid.',
+        },
+      });
+      return;
+    }
+
+    const existingUser = await User.findById(id);
+
+    if (!existingUser) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'The requested user was not found.',
+        },
+      });
+      return;
+    }
+
+    if (existingUser.status !== UserStatus.PENDING) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'ACCOUNT_NOT_PENDING',
+          message: `Only pending accounts can be approved. Current status is "${existingUser.status}".`,
+        },
+      });
+      return;
+    }
+
+    const adminId = req.user?.id ? new mongoose.Types.ObjectId(req.user.id) : undefined;
+
+    const approvedStudent = await User.findOneAndUpdate(
+      {
+        _id: id,
+        status: UserStatus.PENDING,
+      },
+      {
+        $set: {
+          status: UserStatus.ACTIVE,
+          statusUpdatedAt: new Date(),
+          statusUpdatedBy: adminId,
+          statusReason: 'Approved by administrator',
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!approvedStudent) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'ACCOUNT_NOT_PENDING',
+          message: 'This account has already been processed.',
+        },
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Student account approved successfully.',
+      user: approvedStudent.toJSON(),
+      student: approvedStudent.toJSON(), // backwards compatibility
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const rejectStudent = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_USER_ID',
+          message: 'The supplied user ID is invalid.',
+        },
+      });
+      return;
+    }
+
+    const parseResult = MembershipActionSchema.safeParse(req.body);
+    const reason =
+      parseResult.success && parseResult.data.reason
+        ? parseResult.data.reason
+        : 'Registration declined by administrator';
+
+    const existingUser = await User.findById(id);
+
+    if (!existingUser) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'The requested user was not found.',
+        },
+      });
+      return;
+    }
+
+    if (existingUser.status !== UserStatus.PENDING) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'ACCOUNT_NOT_PENDING',
+          message: `Only pending accounts can be rejected. Current status is "${existingUser.status}".`,
+        },
+      });
+      return;
+    }
+
+    const adminId = req.user?.id ? new mongoose.Types.ObjectId(req.user.id) : undefined;
+
+    const rejectedUser = await User.findOneAndUpdate(
+      {
+        _id: id,
+        status: UserStatus.PENDING,
+      },
+      {
+        $set: {
+          status: UserStatus.REJECTED,
+          statusUpdatedAt: new Date(),
+          statusUpdatedBy: adminId,
+          statusReason: reason,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!rejectedUser) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'ACCOUNT_NOT_PENDING',
+          message: 'This account has already been processed.',
+        },
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Student registration rejected.',
+      user: rejectedUser.toJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const suspendUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_USER_ID',
+          message: 'The supplied user ID is invalid.',
+        },
+      });
+      return;
+    }
+
+    // Rule: Prevent self-suspension
+    if (req.user?.id === id) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'CANNOT_SUSPEND_SELF',
+          message: 'Administrators cannot suspend their own account.',
+        },
+      });
+      return;
+    }
+
+    const existingUser = await User.findById(id);
+
+    if (!existingUser) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'The requested user was not found.',
+        },
+      });
+      return;
+    }
+
+    // Rule: Cannot suspend an already suspended account
+    if (existingUser.status === UserStatus.SUSPENDED) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'ACCOUNT_ALREADY_SUSPENDED',
+          message: 'This account is already suspended.',
+        },
+      });
+      return;
+    }
+
+    // Rule: Prevent suspending the last remaining active administrator
+    if (existingUser.role === UserRole.ADMIN) {
+      const activeAdminCount = await User.countDocuments({
+        role: UserRole.ADMIN,
+        status: UserStatus.ACTIVE,
+      });
+
+      if (activeAdminCount <= 1) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'CANNOT_SUSPEND_LAST_ADMIN',
+            message: 'Cannot suspend the only remaining active administrator in the system.',
+          },
+        });
+        return;
+      }
+    }
+
+    const parseResult = MembershipActionSchema.safeParse(req.body);
+    const reason =
+      parseResult.success && parseResult.data.reason
+        ? parseResult.data.reason
+        : 'Account suspended by administrator';
+
+    const adminId = req.user?.id ? new mongoose.Types.ObjectId(req.user.id) : undefined;
+
+    existingUser.status = UserStatus.SUSPENDED;
+    existingUser.statusReason = reason;
+    existingUser.statusUpdatedAt = new Date();
+    existingUser.statusUpdatedBy = adminId;
+
+    await existingUser.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Account suspended successfully.',
+      user: existingUser.toJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const reactivateUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_USER_ID',
+          message: 'The supplied user ID is invalid.',
+        },
+      });
+      return;
+    }
+
+    const existingUser = await User.findById(id);
+
+    if (!existingUser) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'The requested user was not found.',
+        },
+      });
+      return;
+    }
+
+    if (existingUser.status === UserStatus.ACTIVE) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'ACCOUNT_ALREADY_ACTIVE',
+          message: 'This account is already active.',
+        },
+      });
+      return;
+    }
+
+    const adminId = req.user?.id ? new mongoose.Types.ObjectId(req.user.id) : undefined;
+
+    existingUser.status = UserStatus.ACTIVE;
+    existingUser.statusReason = 'Reactivated by administrator';
+    existingUser.statusUpdatedAt = new Date();
+    existingUser.statusUpdatedBy = adminId;
+
+    await existingUser.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Account reactivated successfully.',
+      user: existingUser.toJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};

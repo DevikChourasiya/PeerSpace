@@ -49,6 +49,7 @@ export const UserRoleSchema = z.enum([
 export const UserStatusSchema = z.enum([
   UserStatus.PENDING,
   UserStatus.ACTIVE,
+  UserStatus.REJECTED,
   UserStatus.SUSPENDED,
 ]);
 

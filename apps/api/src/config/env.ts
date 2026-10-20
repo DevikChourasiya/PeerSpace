@@ -24,6 +24,11 @@ const envSchema = z.object({
     .string()
     .min(16, 'SESSION_SECRET must be at least 16 characters long')
     .default('development-session-secret-change-in-production-32chars'),
+  ADMIN_PROVISION_SECRET: z
+    .string()
+    .min(16, 'ADMIN_PROVISION_SECRET must be at least 16 characters long')
+    .optional()
+    .default('development-admin-provision-secret-32chars'),
 });
 
 const parseEnv = () => {

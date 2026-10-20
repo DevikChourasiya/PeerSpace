@@ -5,8 +5,10 @@ import { AuthPage } from './components/AuthPage';
 import { PendingApproval } from './components/PendingApproval';
 import { ActivePortal } from './components/ActivePortal';
 import { SuspendedNotice } from './components/SuspendedNotice';
+import { RejectedNotice } from './components/RejectedNotice';
+import { AdminDashboard } from './components/AdminDashboard';
 import { HealthMonitor } from './components/HealthMonitor';
-import { UserStatus } from '@peerspace/shared';
+import { UserRole, UserStatus } from '@peerspace/shared';
 
 export const App: React.FC = () => {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -37,17 +39,23 @@ export const App: React.FC = () => {
             {isAuthenticated && user && (
               <div className="hidden sm:flex items-center gap-2 pr-3 border-r border-slate-200 text-xs">
                 <span className="text-slate-500 font-medium">{user.name}</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
-                    user.status === UserStatus.ACTIVE
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : user.status === UserStatus.PENDING
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-red-100 text-red-800'
-                  }`}
-                >
-                  {user.status}
-                </span>
+                {user.role === UserRole.ADMIN ? (
+                  <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-semibold text-amber-900 uppercase tracking-wider">
+                    Admin
+                  </span>
+                ) : (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                      user.status === UserStatus.ACTIVE
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : user.status === UserStatus.PENDING
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {user.status}
+                  </span>
+                )}
               </div>
             )}
 
@@ -80,6 +88,10 @@ export const App: React.FC = () => {
           <PendingApproval user={user} />
         ) : user.status === UserStatus.SUSPENDED ? (
           <SuspendedNotice user={user} />
+        ) : user.status === UserStatus.REJECTED ? (
+          <RejectedNotice user={user} />
+        ) : user.role === UserRole.ADMIN ? (
+          <AdminDashboard user={user} />
         ) : (
           <ActivePortal user={user} />
         )}
@@ -88,7 +100,9 @@ export const App: React.FC = () => {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>PeerSpace — Student Feedback Management System · Stage 3 Frontend Auth</span>
+          <span>
+            PeerSpace — Student Feedback Management System · Stage 4 Admin & Membership Management
+          </span>
           <span className="text-[11px] text-slate-400">Institutional Server Session Protected</span>
         </div>
       </footer>
