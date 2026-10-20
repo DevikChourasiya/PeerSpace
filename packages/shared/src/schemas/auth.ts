@@ -23,6 +23,15 @@ export const RegisterRequestSchema = z.object({
 
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
+export const RegisterFormSchema = RegisterRequestSchema.extend({
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
+});
+
+export type RegisterFormData = z.infer<typeof RegisterFormSchema>;
+
 export const LoginRequestSchema = z.object({
   email: z.string().trim().toLowerCase().email('Please provide a valid email address'),
   password: z.string().min(1, 'Password is required'),
