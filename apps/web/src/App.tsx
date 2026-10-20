@@ -22,15 +22,15 @@ export const App: React.FC = () => {
             <div>
               <span className="font-bold text-lg tracking-tight text-white">PeerSpace</span>
               <span className="text-xs text-slate-400 block -mt-1 font-medium">
-                Feedback & Growth Platform
+                Student Feedback Management System
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">
-              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
-              Stage 1: Foundation Active
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Stage 2: Auth & RBAC Active
             </span>
           </div>
         </div>
@@ -45,11 +45,11 @@ export const App: React.FC = () => {
             Production-Minded Monorepo Architecture
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-            PeerSpace — Student Feedback & Growth Platform
+            PeerSpace — Student Feedback Management System
           </h1>
           <p className="text-base sm:text-lg text-slate-400 leading-relaxed">
-            Scalable foundation verified with full end-to-end type safety, Zod validation, Mongoose
-            connectivity, and automated testing across workspaces.
+            Secure authentication, role-based access control, pending membership workflows, and
+            Mongoose session persistence verified across workspaces.
           </p>
         </div>
 
@@ -153,7 +153,7 @@ export const App: React.FC = () => {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-slate-800/80 py-6 text-center text-xs text-slate-500 bg-slate-950/80">
-        <p>PeerSpace — Student Feedback & Growth Platform · Phase 1 Foundation</p>
+        <p>PeerSpace — Student Feedback Management System · Stage 2 Auth & RBAC</p>
       </footer>
     </div>
   );

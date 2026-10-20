@@ -1,11 +1,12 @@
-# PeerSpace — Student Feedback & Growth Platform
+# PeerSpace — Student Feedback Management System
 
 [![Monorepo](https://img.shields.io/badge/monorepo-npm%20workspaces-blue.svg)](#monorepo-structure)
 [![Backend](https://img.shields.io/badge/backend-Express%20%7C%20TypeScript-lightgrey.svg)](apps/api)
 [![Frontend](https://img.shields.io/badge/frontend-React%2018%20%7C%20Vite%20%7C%20Tailwind-teal.svg)](apps/web)
 [![Database](https://img.shields.io/badge/database-MongoDB%20%7C%20Mongoose-green.svg)](#database-configuration)
+[![Stage](https://img.shields.io/badge/stage-Stage%202%20Auth%20%26%20RBAC-emerald.svg)](#authentication--rbac)
 
-PeerSpace is a production-minded web application designed for higher education and collaborative environments. It provides structured peer evaluation, anonymous qualitative feedback, and longitudinal academic growth tracking.
+PeerSpace — Student Feedback Management System is a production-minded web application designed for higher education and collaborative environments. It provides structured peer evaluation, anonymous qualitative feedback, and longitudinal academic growth tracking.
 
 ---
 
@@ -36,7 +37,8 @@ PeerSpace/
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons
 - **Data Fetching & State**: TanStack Query v5
 - **Forms & Validation**: React Hook Form, Zod
-- **Backend**: Node.js, Express, TypeScript, Helmet, Morgan, CORS
+- **Backend**: Node.js, Express, TypeScript, Helmet, Morgan, CORS, express-rate-limit
+- **Authentication**: Server-side sessions with `connect-mongo`, `express-session`, and `bcryptjs` password hashing
 - **Database**: MongoDB Community Server, Mongoose 8
 - **Testing**: Vitest, React Testing Library, Supertest
 
@@ -106,6 +108,29 @@ Run the following commands from the project root:
 | `npm run typecheck`    | Validates TypeScript types across all workspaces with `tsc --noEmit`                   |
 | `npm run format:check` | Checks code formatting across the repository with Prettier                             |
 | `npm run format`       | Applies Prettier formatting fixes                                                      |
+
+---
+
+## Authentication & Role-Based Access Control (Stage 2)
+
+### Endpoints
+
+| Method | Endpoint                    | Access                | Description                                                       |
+| ------ | --------------------------- | --------------------- | ----------------------------------------------------------------- |
+| `POST` | `/api/auth/register`        | Public (Rate-limited) | Register student account (`pending` membership by default)        |
+| `POST` | `/api/auth/login`           | Public (Rate-limited) | Authenticate user, regenerate session, set `peerspace.sid` cookie |
+| `POST` | `/api/auth/logout`          | Authenticated         | Destroy session and clear session cookie                          |
+| `GET`  | `/api/auth/me`              | Authenticated         | Fetch current user session details                                |
+| `GET`  | `/api/auth/membership-test` | Approved Member       | Access restricted to `active` accounts                            |
+| `GET`  | `/api/auth/instructor-test` | Instructor / Admin    | Access restricted to instructor or admin roles                    |
+| `GET`  | `/api/auth/admin-test`      | Admin Only            | Access restricted to administrators                               |
+
+### Security Guarantees
+
+1. **Pending Membership by Default**: Public registration automatically assigns `role: student` and `status: pending`. Attempts to submit elevated privileges (e.g., `admin` role or `active` status) are strictly overridden.
+2. **Password Hashing**: Passwords are encrypted using `bcryptjs` with salt rounds = 10. The `passwordHash` field is marked `select: false` on the User model and never leaked.
+3. **Session Management**: Sessions are stored server-side in MongoDB (`connect-mongo` in `sessions` collection) with `httpOnly`, `sameSite`, and environment-dependent `secure` cookie flags. Session regeneration on login prevents session fixation.
+4. **Brute Force Protection**: Public authentication endpoints are protected by `express-rate-limit`.
 
 ---
 

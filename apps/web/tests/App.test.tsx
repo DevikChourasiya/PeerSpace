@@ -23,7 +23,7 @@ describe('App Component', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: /PeerSpace — Student Feedback & Growth Platform/i,
+        name: /PeerSpace — Student Feedback Management System/i,
       })
     ).toBeInTheDocument();
     expect(screen.getByText(/Production-Minded Monorepo Architecture/i)).toBeInTheDocument();
