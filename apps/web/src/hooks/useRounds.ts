@@ -98,6 +98,8 @@ export function useStudentRounds() {
         submissionsPerPeer: number;
         feedbackVisibility: string;
         targetClass: string;
+        questionnaireId?: string;
+        questionnaireVersionId?: string;
         questionnaireTitle?: string;
         questionCount: number;
       }>;

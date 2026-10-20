@@ -16,6 +16,7 @@ import type { UserResponse } from '@peerspace/shared';
 import { useAuth } from '../hooks/useAuth';
 import { StudentDirectory } from './StudentDirectory';
 import { StudentRoundsList } from './StudentRoundsList';
+import { StudentAnalyticsDashboard } from './StudentAnalyticsDashboard';
 
 interface ActivePortalProps {
   user: UserResponse;
@@ -23,7 +24,9 @@ interface ActivePortalProps {
 
 export const ActivePortal: React.FC<ActivePortalProps> = ({ user }) => {
   const { logoutMutation } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'rounds' | 'directory'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'rounds' | 'directory' | 'analytics'>(
+    'overview'
+  );
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6 py-8 px-4 sm:px-6">
@@ -111,6 +114,19 @@ export const ActivePortal: React.FC<ActivePortalProps> = ({ user }) => {
 
           <button
             type="button"
+            onClick={() => setActiveTab('analytics')}
+            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+              activeTab === 'analytics'
+                ? 'border-blue-600 text-blue-900 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <TrendingUp className="h-4 w-4" />
+            <span>Feedback Analytics</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('overview')}
             className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
               activeTab === 'overview'
@@ -129,6 +145,9 @@ export const ActivePortal: React.FC<ActivePortalProps> = ({ user }) => {
 
       {/* Tab 2: Classmate Directory */}
       {activeTab === 'directory' && <StudentDirectory />}
+
+      {/* Tab 3: Growth & Analytics */}
+      {activeTab === 'analytics' && <StudentAnalyticsDashboard />}
 
       {/* Tab 3: Portal Overview & Growth Modules */}
       {activeTab === 'overview' && (

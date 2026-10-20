@@ -122,3 +122,18 @@ export async function fetchQuestionnaireVersions(id: string): Promise<{
   });
   return handleResponse(response);
 }
+
+export async function fetchQuestionnaireVersionById(
+  id: string,
+  versionId: string
+): Promise<{
+  success: true;
+  version: QuestionnaireVersionResponse;
+}> {
+  const response = await fetch(`/api/admin/questionnaires/${id}/versions/${versionId}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    credentials: 'include',
+  });
+  return handleResponse(response);
+}

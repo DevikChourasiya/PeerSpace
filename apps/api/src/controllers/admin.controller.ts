@@ -1,7 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
-import { UserRole, UserStatus, MembershipActionSchema } from '@peerspace/shared';
+import { UserRole, UserStatus, MembershipActionSchema, AuditAction } from '@peerspace/shared';
 import { User } from '../models/user.model.js';
+import { AuditLog } from '../models/auditLog.model.js';
+import { logAuditEvent } from '../services/auditLog.service.js';
 
 export const getPendingStudents = async (
   _req: Request,
@@ -145,6 +147,14 @@ export const approveStudent = async (
       return;
     }
 
+    await logAuditEvent({
+      req,
+      action: AuditAction.MEMBERSHIP_APPROVED,
+      entityType: 'User',
+      entityId: id,
+      details: { studentEmail: approvedStudent.email, studentName: approvedStudent.name },
+    });
+
     res.status(200).json({
       success: true,
       message: 'Student account approved successfully.',
@@ -233,6 +243,14 @@ export const rejectStudent = async (
       });
       return;
     }
+
+    await logAuditEvent({
+      req,
+      action: AuditAction.MEMBERSHIP_REJECTED,
+      entityType: 'User',
+      entityId: id,
+      details: { studentEmail: rejectedUser.email, reason },
+    });
 
     res.status(200).json({
       success: true,
@@ -334,6 +352,14 @@ export const suspendUser = async (
 
     await existingUser.save();
 
+    await logAuditEvent({
+      req,
+      action: AuditAction.MEMBERSHIP_SUSPENDED,
+      entityType: 'User',
+      entityId: id,
+      details: { email: existingUser.email, reason },
+    });
+
     res.status(200).json({
       success: true,
       message: 'Account suspended successfully.',
@@ -396,10 +422,77 @@ export const reactivateUser = async (
 
     await existingUser.save();
 
+    await logAuditEvent({
+      req,
+      action: AuditAction.MEMBERSHIP_RESTORED,
+      entityType: 'User',
+      entityId: id,
+      details: { email: existingUser.email },
+    });
+
     res.status(200).json({
       success: true,
       message: 'Account reactivated successfully.',
       user: existingUser.toJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Returns paginated, searchable administrator audit logs.
+ */
+export const getAuditLogs = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
+    const skip = (page - 1) * limit;
+
+    const query: Record<string, any> = {};
+    if (req.query.entityType && typeof req.query.entityType === 'string') {
+      query.entityType = req.query.entityType;
+    }
+    if (req.query.action && typeof req.query.action === 'string') {
+      query.action = req.query.action;
+    }
+    if (
+      req.query.actorId &&
+      typeof req.query.actorId === 'string' &&
+      mongoose.isValidObjectId(req.query.actorId)
+    ) {
+      query.actorId = req.query.actorId;
+    }
+
+    const [items, total] = await Promise.all([
+      AuditLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      AuditLog.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        items: items.map((item) => ({
+          id: item._id.toString(),
+          actorId: item.actorId?.toString() || '',
+          actorEmail: item.actorEmail,
+          actorRole: item.actorRole,
+          action: item.action,
+          entityType: item.entityType,
+          entityId: item.entityId,
+          details: item.details || {},
+          ip: item.ip,
+          createdAt: item.createdAt.toISOString(),
+        })),
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
     });
   } catch (error) {
     next(error);

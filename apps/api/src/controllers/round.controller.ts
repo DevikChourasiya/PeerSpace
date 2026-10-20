@@ -663,6 +663,10 @@ export const listStudentRounds = async (
           submissionsPerPeer: r.submissionsPerPeer,
           feedbackVisibility: r.feedbackVisibility,
           targetClass: r.targetClass,
+          questionnaireId: r.questionnaireId ? r.questionnaireId.toString() : undefined,
+          questionnaireVersionId: r.questionnaireVersionId
+            ? (qv as any)?._id?.toString() || r.questionnaireVersionId.toString()
+            : undefined,
           questionnaireTitle: qv?.title,
           questionCount: Array.isArray(qv?.questions) ? qv.questions.length : 0,
           createdAt: r.createdAt,

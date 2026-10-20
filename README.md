@@ -134,6 +134,67 @@ Run the following commands from the project root:
 
 ---
 
+## Administrator Management & Audit Logging (Stages 4 & 6)
+
+### Endpoints
+
+| Method | Endpoint                       | Access     | Description                                                     |
+| ------ | ------------------------------ | ---------- | --------------------------------------------------------------- |
+| `GET`  | `/api/admin/users/pending`     | Admin Only | List students awaiting membership approval                      |
+| `POST` | `/api/admin/users/:id/approve` | Admin Only | Approve pending student account (creates audit event)           |
+| `POST` | `/api/admin/users/:id/reject`  | Admin Only | Reject pending student account (creates audit event)            |
+| `POST` | `/api/admin/users/:id/suspend` | Admin Only | Suspend active student account (creates audit event)            |
+| `POST` | `/api/admin/users/:id/restore` | Admin Only | Restore suspended student account (creates audit event)         |
+| `GET`  | `/api/admin/audit-logs`        | Admin Only | Paginated audit trail with filtering by action, actor, & entity |
+
+### Audit Logging Characteristics
+
+- **Actor Attribution**: Stores `actorId`, `actorEmail`, and `actorRole` for every administrative action.
+- **Credential Protection**: Redacts passwords, tokens, hashes, and session cookies from stored change details.
+- **Tamper Evidence**: Immutable audit log collections indexed by `createdAt` and `action`.
+
+---
+
+## Questionnaires, Rounds & Student Directory (Stage 5)
+
+### Endpoints
+
+| Method  | Endpoint                                        | Access          | Description                                               |
+| ------- | ----------------------------------------------- | --------------- | --------------------------------------------------------- |
+| `GET`   | `/api/directory/students`                       | Approved Member | Searchable student cohort directory                       |
+| `GET`   | `/api/admin/questionnaires`                     | Admin / Inst    | List questionnaire templates                              |
+| `POST`  | `/api/admin/questionnaires`                     | Admin / Inst    | Create new questionnaire rubric                           |
+| `POST`  | `/api/admin/questionnaires/:id/versions`        | Admin / Inst    | Publish immutable version of questionnaire                |
+| `GET`   | `/api/admin/questionnaires/:id/versions/:verId` | Approved Member | Retrieve frozen questionnaire version                     |
+| `GET`   | `/api/rounds`                                   | Approved Member | List feedback rounds (filtered to student cohort)         |
+| `POST`  | `/api/admin/rounds`                             | Admin Only      | Create evaluation round with publication version guard    |
+| `PATCH` | `/api/admin/rounds/:id/status`                  | Admin Only      | Transition round status (`draft`->`scheduled`->`open`...) |
+
+---
+
+## Feedback Submissions & Student Analytics (Stage 6)
+
+### Endpoints
+
+| Method | Endpoint                                   | Access          | Description                                                |
+| ------ | ------------------------------------------ | --------------- | ---------------------------------------------------------- |
+| `GET`  | `/api/rounds/:id/peers`                    | Approved Member | List eligible cohort peer candidates available to evaluate |
+| `GET`  | `/api/rounds/:id/submissions/peer/:peerId` | Approved Member | Retrieve active draft or submission for a peer             |
+| `POST` | `/api/rounds/:id/submissions/draft`        | Approved Member | Save draft evaluation without final rubric validation      |
+| `POST` | `/api/rounds/:id/submissions`              | Approved Member | Submit final evaluation with full rubric validation        |
+| `PUT`  | `/api/rounds/:id/submissions/:subId`       | Approved Member | Edit existing evaluation before round deadline             |
+| `GET`  | `/api/feedback/received`                   | Approved Member | Retrieve received feedback with anonymity rules applied    |
+| `GET`  | `/api/feedback/analytics`                  | Approved Member | Fetch aggregated score distribution & competency metrics   |
+
+### Background Round Activation Service
+
+- **Automatic Lifecycle Transitions**: Checks every 30 seconds for `scheduled` rounds whose `startDate` has arrived.
+- **Publication Guard**: Verifies that the round is assigned a published `questionnaireVersionId` before opening.
+- **Safe Concurrency**: Atomic find-and-modify queries prevent duplicate activations or race conditions.
+- **Server Lifecycle Integration**: Starts on API startup and cleanly stops (`clearInterval()`) on shutdown.
+
+---
+
 ## Backend Health Endpoint
 
 The API provides a health and diagnostics check at:
@@ -172,16 +233,29 @@ If the database is unreachable, the API returns `503 Degraded` with `database.st
 
 ## Testing & Quality Assurance
 
-Run the complete test suite:
+Run the complete test suite (99 automated tests across API and Web):
 
 ```bash
 npm run test
+```
+
+Or run packages individually:
+
+```bash
+npm run test:api   # 72 Supertest API & database integration tests
+npm run test:web   # 27 React Testing Library frontend tests
 ```
 
 Run TypeScript compilation check:
 
 ```bash
 npm run typecheck
+```
+
+Run code style check:
+
+```bash
+npm run format:check
 ```
 
 ---

@@ -2,6 +2,7 @@ import http from 'http';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
+import { startRoundScheduler, stopRoundScheduler } from './services/roundScheduler.service.js';
 
 const startServer = async () => {
   const app = createApp();
@@ -10,6 +11,7 @@ const startServer = async () => {
   // Attempt database connection
   try {
     await connectDatabase();
+    startRoundScheduler();
   } catch (err) {
     console.warn(
       '[Startup] Database connection could not be established immediately. The server will start in degraded mode.',
@@ -38,6 +40,9 @@ const startServer = async () => {
     forceExitTimeout.unref();
 
     try {
+      // 0. Stop background scheduler
+      stopRoundScheduler();
+
       // 1. Close HTTP server
       await new Promise<void>((resolve, reject) => {
         server.close((err) => {

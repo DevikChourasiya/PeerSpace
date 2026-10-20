@@ -5,6 +5,7 @@ import {
   updateQuestionnaire,
   duplicateQuestionnaire,
   publishQuestionnaire,
+  fetchQuestionnaireVersionById,
   QuestionnaireApiError,
 } from '../api/questionnaire';
 import type {
@@ -95,4 +96,16 @@ export function useQuestionnaires() {
     publishMutation,
     invalidateQuestionnaires,
   };
+}
+
+export function useQuestionnaireVersion(questionnaireId?: string, versionId?: string) {
+  return useQuery({
+    queryKey: ['questionnaireVersion', questionnaireId, versionId],
+    queryFn: async () => {
+      if (!questionnaireId || !versionId) return null;
+      const res = await fetchQuestionnaireVersionById(questionnaireId, versionId);
+      return res.version;
+    },
+    enabled: Boolean(questionnaireId && versionId),
+  });
 }

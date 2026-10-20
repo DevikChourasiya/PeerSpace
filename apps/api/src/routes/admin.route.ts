@@ -6,6 +6,7 @@ import {
   rejectStudent,
   suspendUser,
   reactivateUser,
+  getAuditLogs,
 } from '../controllers/admin.controller.js';
 import {
   listQuestionnaires,
@@ -64,3 +65,6 @@ adminRouter.get('/rounds/:id', getRoundById);
 adminRouter.put('/rounds/:id', updateRound);
 adminRouter.post('/rounds/:id/status', transitionRoundStatus);
 adminRouter.get('/rounds/:id/progress', getRoundProgress);
+
+// Audit logging endpoint
+adminRouter.get('/audit-logs', getAuditLogs);

@@ -16,12 +16,14 @@ import {
   UserCheck,
   Calendar,
   FileText,
+  Activity,
 } from 'lucide-react';
 import { UserRole, UserStatus, type UserResponse } from '@peerspace/shared';
 import { useAuth } from '../hooks/useAuth';
 import { useAdmin } from '../hooks/useAdmin';
 import { FeedbackRoundManager } from './FeedbackRoundManager';
 import { QuestionnaireBuilder } from './QuestionnaireBuilder';
+import { AdminAuditLogs } from './AdminAuditLogs';
 
 interface AdminDashboardProps {
   user: UserResponse;
@@ -29,9 +31,9 @@ interface AdminDashboardProps {
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const { logoutMutation } = useAuth();
-  const [activeTab, setActiveTab] = useState<'pending' | 'rounds' | 'questionnaires' | 'roster'>(
-    'pending'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'pending' | 'rounds' | 'questionnaires' | 'roster' | 'audit'
+  >('pending');
   const [rosterStatusFilter, setRosterStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [feedback, setFeedback] = useState<{
@@ -398,6 +400,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
               {allMembers.length}
             </span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('audit')}
+            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+              activeTab === 'audit'
+                ? 'border-blue-600 text-blue-900 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Activity className="h-4 w-4" />
+            <span>Audit Logs</span>
+          </button>
         </nav>
       </div>
 
@@ -671,6 +686,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           )}
         </div>
       )}
+
+      {/* Tab 5: Administrator Audit Logs */}
+      {activeTab === 'audit' && <AdminAuditLogs />}
 
       {/* Reject Confirmation Modal */}
       {rejectingStudent && (

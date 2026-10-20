@@ -7,3 +7,6 @@ export * from './schemas/admin.js';
 export * from './schemas/questionnaire.js';
 export * from './schemas/round.js';
 export * from './schemas/directory.js';
+export * from './schemas/submission.js';
+export * from './schemas/analytics.js';
+export * from './schemas/audit.js';
