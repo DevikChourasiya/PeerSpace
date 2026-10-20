@@ -25,19 +25,14 @@ export function isUserEligibleForRound(
 
   const userIdStr = user._id ? user._id.toString() : user.id ? user.id.toString() : '';
 
-  // If explicit eligibleStudentIds list is provided, user must be included
+  // Precedence: If explicit eligibleStudentIds list is provided, eligibility is determined by the roster allowlist
   if (round.eligibleStudentIds && round.eligibleStudentIds.length > 0) {
-    const isIncluded = round.eligibleStudentIds.some((id) => id.toString() === userIdStr);
-    if (!isIncluded) {
-      return false;
-    }
+    return round.eligibleStudentIds.some((id) => id.toString() === userIdStr);
   }
 
-  // If targetClass is set, user's classSection must match
+  // Otherwise, fallback to class-based cohort matching
   if (round.targetClass) {
-    if (user.classSection !== round.targetClass) {
-      return false;
-    }
+    return user.classSection === round.targetClass;
   }
 
   return true;
@@ -177,14 +172,12 @@ export const getPeerCandidates = async (
       status: 'active',
     };
 
-    if (round.targetClass) {
-      peerFilter.classSection = round.targetClass;
-    }
-
     if (round.eligibleStudentIds && round.eligibleStudentIds.length > 0) {
       peerFilter._id = {
         $in: round.eligibleStudentIds.filter((id) => id.toString() !== currentUserId),
       };
+    } else if (round.targetClass) {
+      peerFilter.classSection = round.targetClass;
     }
 
     const [peers, existingSubmissions] = await Promise.all([

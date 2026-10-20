@@ -422,6 +422,129 @@ describe('Security Remediation Phase 1 Verification', () => {
       expect(finalRes.body.success).toBe(true);
       expect(finalRes.body.data.status).toBe('submitted');
     });
+
+    it('allows explicitly rostered student to participate even when classSection differs from default targetClass', async () => {
+      const rosteredRound = new FeedbackRound({
+        title: 'Explicit Roster Cross-Section Round',
+        questionnaireId: testQuestionnaireId,
+        questionnaireVersionId: publishedVersionId,
+        status: RoundStatus.OPEN,
+        startDate: new Date(Date.now() - 3600000),
+        deadline: new Date(Date.now() + 86400000),
+        isAnonymous: true,
+        allowSubmissionEdit: true,
+        submissionsPerPeer: 1,
+        feedbackVisibility: FeedbackVisibility.AFTER_DEADLINE,
+        targetClass: 'CS-DEFAULT-CLASS',
+        eligibleStudentIds: [cohortAStudent1Id, cohortBStudentId],
+        createdBy: adminUserId,
+      });
+      await rosteredRound.save();
+      createdRoundIds.push(rosteredRound.id);
+
+      // Student B (classSection: cohortB !== 'CS-DEFAULT-CLASS') can access rubric
+      const rubricRes = await request(app)
+        .get(`/api/rounds/${rosteredRound.id}/rubric`)
+        .set('Cookie', cohortBStudentCookie);
+      expect(rubricRes.status).toBe(200);
+
+      // Student B can view peer candidates (should see Student A1)
+      const peersRes = await request(app)
+        .get(`/api/rounds/${rosteredRound.id}/peers`)
+        .set('Cookie', cohortBStudentCookie);
+      expect(peersRes.status).toBe(200);
+      expect(peersRes.body.data.candidates.some((c: any) => c.id === cohortAStudent1Id)).toBe(true);
+
+      // Student B can save draft targeting Student A1
+      const draftRes = await request(app)
+        .post(`/api/rounds/${rosteredRound.id}/submissions/draft`)
+        .set('Cookie', cohortBStudentCookie)
+        .send({
+          targetStudentId: cohortAStudent1Id,
+          responses: [
+            { questionId: 'q_collab', questionType: QuestionType.STAR_RATING, rating: 4 },
+          ],
+        });
+      expect(draftRes.status).toBe(200);
+
+      // Student B can finalize submission targeting Student A1
+      const finalRes = await request(app)
+        .post(`/api/rounds/${rosteredRound.id}/submissions`)
+        .set('Cookie', cohortBStudentCookie)
+        .send({
+          targetStudentId: cohortAStudent1Id,
+          responses: [
+            { questionId: 'q_collab', questionType: QuestionType.STAR_RATING, rating: 5 },
+          ],
+        });
+      expect(finalRes.status).toBe(201);
+    });
+
+    it('rejects student outside explicit roster even if student classSection matches round targetClass', async () => {
+      const rosteredRound = new FeedbackRound({
+        title: 'Strict Roster Round With Cohort A targetClass',
+        questionnaireId: testQuestionnaireId,
+        questionnaireVersionId: publishedVersionId,
+        status: RoundStatus.OPEN,
+        startDate: new Date(Date.now() - 3600000),
+        deadline: new Date(Date.now() + 86400000),
+        isAnonymous: true,
+        allowSubmissionEdit: true,
+        submissionsPerPeer: 1,
+        feedbackVisibility: FeedbackVisibility.AFTER_DEADLINE,
+        targetClass: cohortA,
+        eligibleStudentIds: [cohortAStudent1Id], // Only A1 is on roster; A2 is in cohortA but NOT on roster
+        createdBy: adminUserId,
+      });
+      await rosteredRound.save();
+      createdRoundIds.push(rosteredRound.id);
+
+      // Student A2 tries to access peers -> 403 REVIEWER_NOT_ELIGIBLE
+      const peersRes = await request(app)
+        .get(`/api/rounds/${rosteredRound.id}/peers`)
+        .set('Cookie', cohortAStudent2Cookie);
+      expect(peersRes.status).toBe(403);
+      expect(peersRes.body.error?.code).toBe('REVIEWER_NOT_ELIGIBLE');
+
+      // Student A1 tries to submit targeting A2 -> 403 PEER_NOT_IN_COHORT
+      const subRes = await request(app)
+        .post(`/api/rounds/${rosteredRound.id}/submissions`)
+        .set('Cookie', cohortAStudent1Cookie)
+        .send({
+          targetStudentId: cohortAStudent2Id,
+          responses: [
+            { questionId: 'q_collab', questionType: QuestionType.STAR_RATING, rating: 5 },
+          ],
+        });
+      expect(subRes.status).toBe(403);
+      expect(subRes.body.error?.code).toBe('PEER_NOT_IN_COHORT');
+    });
+
+    it('rejects self-evaluation attempts with 400 SELF_REVIEW_PROHIBITED', async () => {
+      const selfDraftRes = await request(app)
+        .post(`/api/rounds/${testRoundId}/submissions/draft`)
+        .set('Cookie', cohortAStudent1Cookie)
+        .send({
+          targetStudentId: cohortAStudent1Id,
+          responses: [
+            { questionId: 'q_collab', questionType: QuestionType.STAR_RATING, rating: 5 },
+          ],
+        });
+      expect(selfDraftRes.status).toBe(400);
+      expect(selfDraftRes.body.error?.code).toBe('SELF_REVIEW_PROHIBITED');
+
+      const selfSubmitRes = await request(app)
+        .post(`/api/rounds/${testRoundId}/submissions`)
+        .set('Cookie', cohortAStudent1Cookie)
+        .send({
+          targetStudentId: cohortAStudent1Id,
+          responses: [
+            { questionId: 'q_collab', questionType: QuestionType.STAR_RATING, rating: 5 },
+          ],
+        });
+      expect(selfSubmitRes.status).toBe(400);
+      expect(selfSubmitRes.body.error?.code).toBe('SELF_REVIEW_PROHIBITED');
+    });
   });
 
   // =========================================================================
