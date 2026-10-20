@@ -1,0 +1,29 @@
+{
+  "name": "peerspace-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PeerSpace — Student Feedback & Growth Platform Monorepo",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"API,WEB\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev --workspace=@peerspace/api",
+    "dev:web": "npm run dev --workspace=@peerspace/web",
+    "build:shared": "npm run build --workspace=@peerspace/shared",
+    "build:api": "npm run build --workspace=@peerspace/api",
+    "build:web": "npm run build --workspace=@peerspace/web",
+    "build": "npm run build:shared && npm run build:api && npm run build:web",
+    "test": "npm run test --workspaces --if-present",
+    "test:api": "npm run test --workspace=@peerspace/api",
+    "test:web": "npm run test --workspace=@peerspace/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format:check": "prettier --check .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prettier": "^3.5.1"
+  }
+}
