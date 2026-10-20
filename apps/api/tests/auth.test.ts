@@ -218,15 +218,19 @@ describe('Authentication & Role-Based Access Control (Stage 2)', () => {
     let adminCookie: string;
     let studentUserId: string;
 
+    const getSessionCookie = (res: { headers: Record<string, any> }): string => {
+      const raw = res.headers['set-cookie'];
+      const cookies: string[] = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [];
+      return cookies.find((c) => c.includes('peerspace.sid')) || '';
+    };
+
     beforeAll(async () => {
       // 1. Log in student
       const studentLoginRes = await request(app).post('/api/auth/login').send({
         email: testStudentData.email,
         password: testStudentData.password,
       });
-      studentCookie = studentLoginRes.headers['set-cookie'].find((c: string) =>
-        c.includes('peerspace.sid')
-      );
+      studentCookie = getSessionCookie(studentLoginRes);
       studentUserId = studentLoginRes.body.user.id;
 
       // 2. Create and login Instructor
@@ -245,9 +249,7 @@ describe('Authentication & Role-Based Access Control (Stage 2)', () => {
         email: testInstructorData.email,
         password: testInstructorData.password,
       });
-      instructorCookie = instructorLoginRes.headers['set-cookie'].find((c: string) =>
-        c.includes('peerspace.sid')
-      );
+      instructorCookie = getSessionCookie(instructorLoginRes);
 
       // 3. Create and login Admin
       const adminHash = await User.hashPassword(testAdminData.password);
@@ -265,9 +267,7 @@ describe('Authentication & Role-Based Access Control (Stage 2)', () => {
         email: testAdminData.email,
         password: testAdminData.password,
       });
-      adminCookie = adminLoginRes.headers['set-cookie'].find((c: string) =>
-        c.includes('peerspace.sid')
-      );
+      adminCookie = getSessionCookie(adminLoginRes);
     });
 
     it('denies access to protected membership routes for pending student with 403 MEMBERSHIP_PENDING', async () => {

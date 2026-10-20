@@ -10,29 +10,42 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 dotenv.config();
 
-const envSchema = z.object({
-  PORT: z
-    .string()
-    .optional()
-    .default('5001')
-    .transform((val) => parseInt(val, 10))
-    .pipe(z.number().positive().max(65535)),
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  MONGODB_URI: z.string().min(1).default('mongodb://127.0.0.1:27017/peerspace_feedback'),
-  CORS_ORIGIN: z.string().default('http://localhost:5173'),
-  SESSION_SECRET: z
-    .string()
-    .min(16, 'SESSION_SECRET must be at least 16 characters long')
-    .default('development-session-secret-change-in-production-32chars'),
-  ADMIN_PROVISION_SECRET: z
-    .string()
-    .min(16, 'ADMIN_PROVISION_SECRET must be at least 16 characters long')
-    .optional()
-    .default('development-admin-provision-secret-32chars'),
-});
+export const DEFAULT_DEV_SESSION_SECRET = 'development-session-secret-change-in-production-32chars';
 
-const parseEnv = () => {
-  const result = envSchema.safeParse(process.env);
+export const envSchema = z
+  .object({
+    PORT: z
+      .string()
+      .optional()
+      .default('5001')
+      .transform((val) => parseInt(val, 10))
+      .pipe(z.number().positive().max(65535)),
+    NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+    MONGODB_URI: z.string().min(1).default('mongodb://127.0.0.1:27017/peerspace_feedback'),
+    CORS_ORIGIN: z.string().default('http://localhost:5173'),
+    SESSION_SECRET: z
+      .string()
+      .min(16, 'SESSION_SECRET must be at least 16 characters long')
+      .default(DEFAULT_DEV_SESSION_SECRET),
+    ADMIN_PROVISION_SECRET: z
+      .string()
+      .min(16, 'ADMIN_PROVISION_SECRET must be at least 16 characters long')
+      .optional()
+      .default('development-admin-provision-secret-32chars'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.NODE_ENV === 'production' && data.SESSION_SECRET === DEFAULT_DEV_SESSION_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SESSION_SECRET'],
+        message:
+          'Insecure production configuration: SESSION_SECRET must not use the default development secret in production mode.',
+      });
+    }
+  });
+
+export const parseEnv = (rawEnv: Record<string, unknown> = process.env) => {
+  const result = envSchema.safeParse(rawEnv);
 
   if (!result.success) {
     console.error('❌ Invalid environment variable configuration:');

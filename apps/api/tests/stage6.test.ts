@@ -4,7 +4,7 @@ import { createApp } from '../src/app.js';
 import { connectDatabase, disconnectDatabase } from '../src/config/database.js';
 import { User } from '../src/models/user.model.js';
 import { Questionnaire } from '../src/models/questionnaire.model.js';
-import { QuestionnaireVersion } from '../models/questionnaireVersion.model.js';
+import { QuestionnaireVersion } from '../src/models/questionnaireVersion.model.js';
 import { FeedbackRound } from '../src/models/feedbackRound.model.js';
 import { FeedbackSubmission } from '../src/models/feedbackSubmission.model.js';
 import { AuditLog } from '../src/models/auditLog.model.js';
@@ -21,6 +21,11 @@ describe('Stage 6: Student Feedback Submissions, Analytics, Schedulers & Audit L
   const app = createApp();
   const timestamp = Date.now();
   const createdUserIds: string[] = [];
+  const getSessionCookie = (res: { headers: Record<string, any> }): string => {
+    const raw = res.headers['set-cookie'];
+    const cookies: string[] = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [];
+    return cookies.find((c) => c.includes('peerspace.sid')) || '';
+  };
 
   let adminCookie: string;
   let adminUserId: string;
@@ -57,9 +62,7 @@ describe('Stage 6: Student Feedback Submissions, Analytics, Schedulers & Audit L
       email: adminUser.email,
       password: adminPassword,
     });
-    adminCookie = adminLoginRes.headers['set-cookie'].find((c: string) =>
-      c.includes('peerspace.sid')
-    );
+    adminCookie = getSessionCookie(adminLoginRes);
 
     // 2. Create Student 1 (Reviewer)
     const studentPassword = 'Password123!';
@@ -81,9 +84,7 @@ describe('Stage 6: Student Feedback Submissions, Analytics, Schedulers & Audit L
       email: student1.email,
       password: studentPassword,
     });
-    student1Cookie = s1LoginRes.headers['set-cookie'].find((c: string) =>
-      c.includes('peerspace.sid')
-    );
+    student1Cookie = getSessionCookie(s1LoginRes);
 
     // 3. Create Student 2 (Peer Target)
     const student2 = new User({
@@ -104,9 +105,7 @@ describe('Stage 6: Student Feedback Submissions, Analytics, Schedulers & Audit L
       email: student2.email,
       password: studentPassword,
     });
-    student2Cookie = s2LoginRes.headers['set-cookie'].find((c: string) =>
-      c.includes('peerspace.sid')
-    );
+    student2Cookie = getSessionCookie(s2LoginRes);
 
     // 4. Create and publish a rubric questionnaire
     const rubricQ = new Questionnaire({

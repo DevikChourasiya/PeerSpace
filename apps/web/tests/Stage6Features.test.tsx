@@ -56,7 +56,10 @@ describe('Stage 6: Student Feedback Submissions, Analytics & Audit Logs (Fronten
         (input: RequestInfo | URL, init?: RequestInit) => {
           const url = typeof input === 'string' ? input : input.toString();
 
-          if (url.includes('/api/admin/questionnaires/q_1/versions/qv_1')) {
+          if (
+            url.includes('/api/rounds/rubrics/versions/qv_1') ||
+            url.includes('/api/admin/questionnaires/q_1/versions/qv_1')
+          ) {
             return Promise.resolve(
               new Response(
                 JSON.stringify({

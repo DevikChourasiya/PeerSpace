@@ -20,6 +20,11 @@ describe('Stage 5: Feedback Rounds, Questionnaire Builder & Student Directory', 
   const createdUserIds: string[] = [];
   const createdQuestionnaireIds: string[] = [];
   const createdRoundIds: string[] = [];
+  const getSessionCookie = (res: { headers: Record<string, any> }): string => {
+    const raw = res.headers['set-cookie'];
+    const cookies: string[] = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [];
+    return cookies.find((c) => c.includes('peerspace.sid')) || '';
+  };
 
   let adminCookie: string;
   let studentCookie: string;
@@ -55,7 +60,7 @@ describe('Stage 5: Feedback Rounds, Questionnaire Builder & Student Directory', 
       email: adminEmail,
       password: adminPassword,
     });
-    adminCookie = adminLogin.headers['set-cookie'].find((c: string) => c.includes('peerspace.sid'));
+    adminCookie = getSessionCookie(adminLogin);
 
     // 2. Create Active Student
     const studentEmail = `student.active.${timestamp}@university.edu`;
@@ -79,9 +84,7 @@ describe('Stage 5: Feedback Rounds, Questionnaire Builder & Student Directory', 
       email: studentEmail,
       password: studentPassword,
     });
-    studentCookie = studentLogin.headers['set-cookie'].find((c: string) =>
-      c.includes('peerspace.sid')
-    );
+    studentCookie = getSessionCookie(studentLogin);
 
     // 3. Create Pending Student (should be excluded from directory)
     const pendingEmail = `student.pending.${timestamp}@university.edu`;
@@ -98,9 +101,7 @@ describe('Stage 5: Feedback Rounds, Questionnaire Builder & Student Directory', 
       email: pendingEmail,
       password: pendingPassword,
     });
-    pendingStudentCookie = pendingLogin.headers['set-cookie'].find((c: string) =>
-      c.includes('peerspace.sid')
-    );
+    pendingStudentCookie = getSessionCookie(pendingLogin);
   });
 
   afterAll(async () => {

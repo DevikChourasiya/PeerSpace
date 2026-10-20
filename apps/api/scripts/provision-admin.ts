@@ -1,15 +1,18 @@
+import crypto from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '../src/config/database.js';
 import { env } from '../src/config/env.js';
 import { User } from '../src/models/user.model.js';
 import { UserRole, UserStatus } from '@peerspace/shared';
 
-interface ParsedArgs {
+export interface ParsedArgs {
   email?: string;
   secret?: string;
   help?: boolean;
 }
 
-function parseCliArgs(args: string[]): ParsedArgs {
+export function parseCliArgs(args: string[]): ParsedArgs {
   const parsed: ParsedArgs = {};
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -24,7 +27,24 @@ function parseCliArgs(args: string[]): ParsedArgs {
   return parsed;
 }
 
-async function runProvisioning() {
+export function verifyProvisioningSecret(
+  providedSecret: string | undefined,
+  configuredSecret: string | undefined
+): boolean {
+  if (!providedSecret || !configuredSecret) {
+    return false;
+  }
+  const providedBuffer = Buffer.from(providedSecret, 'utf8');
+  const configuredBuffer = Buffer.from(configuredSecret, 'utf8');
+
+  if (providedBuffer.length !== configuredBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(providedBuffer, configuredBuffer);
+}
+
+export async function runProvisioning() {
   const args = parseCliArgs(process.argv.slice(2));
 
   if (args.help || !args.email) {
@@ -32,26 +52,24 @@ async function runProvisioning() {
 PeerSpace — Administrator Provisioning Utility
 
 Usage:
-  npm run provision:admin -- --email <user_email> [--secret <provisioning_secret>]
+  npm run provision:admin -- --email <user_email> --secret <provisioning_secret>
 
 Requirements:
   1. The target account must already be registered in PeerSpace.
   2. The provisioning secret must match ADMIN_PROVISION_SECRET in .env.
 
 Examples:
-  npm run provision:admin -- --email admin@university.edu
   npm run provision:admin -- --email admin@university.edu --secret my-secret-token
 `);
     process.exit(args.help ? 0 : 1);
   }
 
   const targetEmail = args.email.trim().toLowerCase();
-  const providedSecret =
-    args.secret || process.env.ADMIN_PROVISION_SECRET || env.ADMIN_PROVISION_SECRET;
+  const providedSecret = args.secret;
 
-  if (!providedSecret || providedSecret !== env.ADMIN_PROVISION_SECRET) {
+  if (!verifyProvisioningSecret(providedSecret, env.ADMIN_PROVISION_SECRET)) {
     console.error('❌ Authorization Failed: Invalid or missing administrator provisioning secret.');
-    console.error('   Ensure ADMIN_PROVISION_SECRET is set in .env or provide --secret <secret>.');
+    console.error('   An explicit secret must be provided via --secret <provisioning_secret>.');
     process.exit(1);
   }
 
@@ -115,7 +133,18 @@ Examples:
   }
 }
 
-runProvisioning().catch((err) => {
-  console.error('Fatal provisioning error:', err);
-  process.exit(1);
-});
+const isDirectExecution = (): boolean => {
+  if (!process.argv[1]) return false;
+  try {
+    return fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+  } catch {
+    return process.argv[1].includes('provision-admin');
+  }
+};
+
+if (isDirectExecution()) {
+  runProvisioning().catch((err) => {
+    console.error('Fatal provisioning error:', err);
+    process.exit(1);
+  });
+}

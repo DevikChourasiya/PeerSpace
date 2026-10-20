@@ -124,13 +124,13 @@ export async function fetchQuestionnaireVersions(id: string): Promise<{
 }
 
 export async function fetchQuestionnaireVersionById(
-  id: string,
+  _id: string,
   versionId: string
 ): Promise<{
   success: true;
   version: QuestionnaireVersionResponse;
 }> {
-  const response = await fetch(`/api/admin/questionnaires/${id}/versions/${versionId}`, {
+  const response = await fetch(`/api/rounds/rubrics/versions/${versionId}`, {
     method: 'GET',
     headers: { Accept: 'application/json' },
     credentials: 'include',

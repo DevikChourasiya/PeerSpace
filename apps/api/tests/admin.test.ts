@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { connectDatabase, disconnectDatabase } from '../src/config/database.js';
@@ -9,6 +9,12 @@ describe('Administrator Membership Management & Approval APIs (Stage 4)', () => 
   const app = createApp();
   const createdUserIds: string[] = [];
   const timestamp = Date.now();
+
+  const getSessionCookie = (res: { headers: Record<string, any> }): string => {
+    const raw = res.headers['set-cookie'];
+    const cookies: string[] = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [];
+    return cookies.find((c) => c.includes('peerspace.sid')) || '';
+  };
 
   let adminCookie: string;
   let adminUserId: string;
@@ -37,9 +43,7 @@ describe('Administrator Membership Management & Approval APIs (Stage 4)', () => 
       email: adminUser.email,
       password: adminPassword,
     });
-    adminCookie = adminLoginRes.headers['set-cookie'].find((c: string) =>
-      c.includes('peerspace.sid')
-    );
+    adminCookie = getSessionCookie(adminLoginRes);
 
     // 2. Create and log in regular Student
     const studentPassword = 'StudentPassword123!';
@@ -59,9 +63,7 @@ describe('Administrator Membership Management & Approval APIs (Stage 4)', () => 
       email: studentUser.email,
       password: studentPassword,
     });
-    studentCookie = studentLoginRes.headers['set-cookie'].find((c: string) =>
-      c.includes('peerspace.sid')
-    );
+    studentCookie = getSessionCookie(studentLoginRes);
   });
 
   afterAll(async () => {
@@ -117,9 +119,7 @@ describe('Administrator Membership Management & Approval APIs (Stage 4)', () => 
         email: pendingStudentEmail,
         password: pendingPassword,
       });
-      pendingStudentCookie = loginRes.headers['set-cookie'].find((c: string) =>
-        c.includes('peerspace.sid')
-      );
+      pendingStudentCookie = getSessionCookie(loginRes);
     });
 
     it('returns pending students in list when requested by administrator', async () => {
@@ -200,9 +200,7 @@ describe('Administrator Membership Management & Approval APIs (Stage 4)', () => 
         email: rejectEmail,
         password: rejectPassword,
       });
-      rejectStudentCookie = loginRes.headers['set-cookie'].find((c: string) =>
-        c.includes('peerspace.sid')
-      );
+      rejectStudentCookie = getSessionCookie(loginRes);
     });
 
     it('rejects a pending student registration with a reason', async () => {
