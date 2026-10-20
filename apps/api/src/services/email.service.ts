@@ -1,3 +1,4 @@
+import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
 
@@ -25,7 +26,68 @@ export const setMockDeliveryFailure = (shouldFail: boolean): void => {
   mockDeliveryFailure = shouldFail;
 };
 
-const createTransporter = () => {
+export interface ResendSendEmailOptions {
+  from: string;
+  to: string | string[];
+  subject: string;
+  text?: string;
+  html?: string;
+}
+
+export interface ResendSendEmailResponse {
+  data: { id: string } | null;
+  error: { name: string; message: string } | null;
+}
+
+export interface ResendEmailsClient {
+  emails: {
+    send: (payload: ResendSendEmailOptions) => Promise<ResendSendEmailResponse>;
+  };
+}
+
+let resendInstance: Resend | null = null;
+let mockResendClient: ResendEmailsClient | null = null;
+
+/**
+ * Injects a mock Resend client for unit testing provider responses, API errors, and network issues.
+ */
+export const setMockResendClient = (client: ResendEmailsClient | null): void => {
+  mockResendClient = client;
+};
+
+const getResendClient = (): ResendEmailsClient | Resend | null => {
+  if (mockResendClient) {
+    return mockResendClient;
+  }
+  if (env.RESEND_API_KEY) {
+    if (!resendInstance) {
+      resendInstance = new Resend(env.RESEND_API_KEY);
+    }
+    return resendInstance;
+  }
+  return null;
+};
+
+/**
+ * Resolves the sender address from environment variables.
+ * Note: Sending to arbitrary external student addresses in production requires a verified domain in Resend.
+ * For initial sandbox testing, onboarding@resend.dev is used as the fallback test sender.
+ */
+export const getSenderAddress = (): string => {
+  if (env.RESEND_FROM) {
+    return env.RESEND_FROM;
+  }
+  if (env.EMAIL_FROM) {
+    return env.EMAIL_FROM;
+  }
+  if (env.RESEND_API_KEY) {
+    return 'PeerSpace <onboarding@resend.dev>';
+  }
+  return env.SMTP_FROM || 'PeerSpace <no-reply@peerspace.edu>';
+};
+
+// Deprecated SMTP transporter fallback (used only if SMTP is explicitly configured and RESEND_API_KEY is unset)
+const createSmtpTransporter = () => {
   if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
     return nodemailer.createTransport({
       host: env.SMTP_HOST,
@@ -37,14 +99,10 @@ const createTransporter = () => {
       },
     });
   }
-
-  // Fallback to JSON transport in test and local development when SMTP credentials are not configured
-  return nodemailer.createTransport({
-    jsonTransport: true,
-  });
+  return null;
 };
 
-const transporter = createTransporter();
+const smtpTransporter = createSmtpTransporter();
 
 export const sendVerificationEmail = async (
   recipientEmail: string,
@@ -52,7 +110,7 @@ export const sendVerificationEmail = async (
   verificationToken: string
 ): Promise<{ success: boolean; messageId?: string }> => {
   if (mockDeliveryFailure) {
-    throw new Error('Simulated SMTP delivery failure for testing.');
+    throw new Error('Simulated email delivery failure for testing.');
   }
 
   const baseUrl = env.APP_URL || env.CORS_ORIGIN || 'http://localhost:5173';
@@ -119,41 +177,108 @@ The PeerSpace Academic Team`;
 </body>
 </html>`;
 
-  try {
-    const info = await transporter.sendMail({
-      from: env.SMTP_FROM,
-      to: recipientEmail,
-      subject,
-      text: textContent,
-      html: htmlContent,
-    });
+  // 1. Primary delivery path: Resend Node.js SDK over HTTPS
+  const resend = getResendClient();
+  if (resend) {
+    const fromAddress = getSenderAddress();
+    try {
+      const response = await resend.emails.send({
+        from: fromAddress,
+        to: recipientEmail,
+        subject,
+        text: textContent,
+        html: htmlContent,
+      });
 
-    // Record email in log (for test assertions and non-sensitive diagnostics)
-    sentEmailsLog.push({
-      to: recipientEmail,
-      subject,
-      token: verificationToken,
-      verificationLink,
-      sentAt: new Date(),
-    });
+      if (response.error) {
+        console.error(
+          `[EmailService] Resend API error: ${response.error.name} - ${response.error.message}`
+        );
+        throw new Error(`Email delivery failed: ${response.error.message}`);
+      }
 
-    if (env.NODE_ENV === 'development' && (!env.SMTP_HOST || !env.SMTP_USER)) {
-      console.log('\n============================================================');
-      console.log('📨 [PeerSpace Email Service — Development Mock Transport]');
-      console.log(`To: ${recipientEmail}`);
-      console.log(`Subject: ${subject}`);
-      console.log('Notice: SMTP is not configured in .env. No real email was sent to your inbox.');
-      console.log(`👉 Development Verification Link: ${verificationLink}`);
-      console.log('============================================================\n');
+      sentEmailsLog.push({
+        to: recipientEmail,
+        subject,
+        token: verificationToken,
+        verificationLink,
+        sentAt: new Date(),
+      });
+
+      return {
+        success: true,
+        messageId: response.data?.id,
+      };
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[EmailService] Failed to deliver verification email via Resend to recipient: ${errorMsg}`
+      );
+      throw new Error('Email delivery failed');
     }
-
-    return {
-      success: true,
-      messageId: info?.messageId,
-    };
-  } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error(`[EmailService] Failed to deliver verification email to recipient: ${errorMsg}`);
-    throw new Error('Email delivery failed');
   }
+
+  // 2. Production guard: Enforce configured email provider in production mode
+  if (env.NODE_ENV === 'production' && !env.SMTP_HOST) {
+    console.error(
+      '[EmailService] Missing email provider configuration: RESEND_API_KEY is not configured in production.'
+    );
+    throw new Error('Email delivery failed: Email provider not configured.');
+  }
+
+  // 3. Deprecated fallback: SMTP transport if SMTP credentials are provided
+  if (smtpTransporter) {
+    try {
+      const info = await smtpTransporter.sendMail({
+        from: env.SMTP_FROM,
+        to: recipientEmail,
+        subject,
+        text: textContent,
+        html: htmlContent,
+      });
+
+      sentEmailsLog.push({
+        to: recipientEmail,
+        subject,
+        token: verificationToken,
+        verificationLink,
+        sentAt: new Date(),
+      });
+
+      return {
+        success: true,
+        messageId: info?.messageId,
+      };
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[EmailService] Failed to deliver verification email via SMTP: ${errorMsg}`);
+      throw new Error('Email delivery failed');
+    }
+  }
+
+  // 4. Local development / test mock transport fallback
+  sentEmailsLog.push({
+    to: recipientEmail,
+    subject,
+    token: verificationToken,
+    verificationLink,
+    sentAt: new Date(),
+  });
+
+  if (env.NODE_ENV === 'development') {
+    console.log('\n============================================================');
+    console.log('📨 [PeerSpace Email Service — Development Mock Transport]');
+    console.log(`To: ${recipientEmail}`);
+    console.log(`Subject: ${subject}`);
+    console.log(
+      'Notice: RESEND_API_KEY is not configured in .env. No real email was sent to your inbox.'
+    );
+    console.log(`👉 Development Verification Link: ${verificationLink}`);
+    console.log('============================================================\n');
+  }
+
+  return {
+    success: true,
+    messageId: `mock-${Date.now()}`,
+  };
 };

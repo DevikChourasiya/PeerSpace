@@ -32,6 +32,9 @@ export const envSchema = z
       .min(16, 'ADMIN_PROVISION_SECRET must be at least 16 characters long')
       .optional()
       .default('development-admin-provision-secret-32chars'),
+    RESEND_API_KEY: z.string().optional(),
+    RESEND_FROM: z.string().optional(),
+    EMAIL_FROM: z.string().optional(),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z
       .string()
