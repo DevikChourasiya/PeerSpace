@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   CheckCircle2,
   LogOut,
@@ -9,9 +9,13 @@ import {
   MessageSquare,
   TrendingUp,
   ShieldCheck,
+  Users,
+  Calendar,
 } from 'lucide-react';
 import type { UserResponse } from '@peerspace/shared';
 import { useAuth } from '../hooks/useAuth';
+import { StudentDirectory } from './StudentDirectory';
+import { StudentRoundsList } from './StudentRoundsList';
 
 interface ActivePortalProps {
   user: UserResponse;
@@ -19,9 +23,10 @@ interface ActivePortalProps {
 
 export const ActivePortal: React.FC<ActivePortalProps> = ({ user }) => {
   const { logoutMutation } = useAuth();
+  const [activeTab, setActiveTab] = useState<'overview' | 'rounds' | 'directory'>('overview');
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-8 py-8 px-4 sm:px-6">
+    <div className="w-full max-w-6xl mx-auto space-y-6 py-8 px-4 sm:px-6">
       {/* Welcome Banner */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-slate-900/10">
         <div className="bg-slate-900 p-6 sm:p-8 text-white relative">
@@ -40,7 +45,8 @@ export const ActivePortal: React.FC<ActivePortalProps> = ({ user }) => {
                 Welcome back, {user.name}!
               </h1>
               <p className="text-sm text-slate-300">
-                You have approved institutional clearance for PeerSpace feedback rounds.
+                You have approved institutional clearance for PeerSpace feedback rounds and peer
+                evaluations.
               </p>
             </div>
 
@@ -74,92 +80,144 @@ export const ActivePortal: React.FC<ActivePortalProps> = ({ user }) => {
         </div>
       </div>
 
-      {/* Student Feedback Modules Grid */}
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-              Evaluation & Growth Modules
-            </h2>
-            <p className="text-xs text-slate-500">
-              Approved workspace access for peer evaluations and performance rubrics.
-            </p>
-          </div>
-        </div>
+      {/* Navigation Tabs */}
+      <div className="border-b border-slate-200">
+        <nav className="flex space-x-6 text-sm font-semibold">
+          <button
+            type="button"
+            onClick={() => setActiveTab('rounds')}
+            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+              activeTab === 'rounds'
+                ? 'border-blue-600 text-blue-900 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Calendar className="h-4 w-4" />
+            <span>Assigned Feedback Rounds</span>
+          </button>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Card 1: Feedback Rounds */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700">
-              <BookOpen className="h-5 w-5" />
-            </div>
-            <h3 className="font-bold text-slate-900 text-sm">Course Feedback Cycles</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Assigned peer groups, rubric submission criteria, and evaluation schedules configured
-              by your course instructor.
-            </p>
-            <div className="pt-2">
-              <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
-                Stage 4: Feedback Rounds
-              </span>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('directory')}
+            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+              activeTab === 'directory'
+                ? 'border-blue-600 text-blue-900 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            <span>Classmate Directory</span>
+          </button>
 
-          {/* Card 2: Anonymous Peer Reviews */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
-            <div className="h-10 w-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700">
-              <MessageSquare className="h-5 w-5" />
-            </div>
-            <h3 className="font-bold text-slate-900 text-sm">Anonymous Peer Reviews</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Constructive, anonymous qualitative feedback loops with identity protection and
-              moderation filters.
-            </p>
-            <div className="pt-2">
-              <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
-                Stage 5: Anonymous Reviews
-              </span>
-            </div>
-          </div>
-
-          {/* Card 3: Longitudinal Growth */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
-            <div className="h-10 w-10 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-700">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-            <h3 className="font-bold text-slate-900 text-sm">Growth & Analytics</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Longitudinal tracking of competency benchmarks, scoring distributions, and
-              constructive peer growth insights.
-            </p>
-            <div className="pt-2">
-              <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
-                Stage 6: Growth Analytics
-              </span>
-            </div>
-          </div>
-        </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+              activeTab === 'overview'
+                ? 'border-blue-600 text-blue-900 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <BookOpen className="h-4 w-4" />
+            <span>Evaluation Modules & Overview</span>
+          </button>
+        </nav>
       </div>
 
-      {/* Security and Session Verification Notice */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-600">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100">
-            <ShieldCheck className="h-5 w-5" />
+      {/* Tab 1: Feedback Rounds */}
+      {activeTab === 'rounds' && <StudentRoundsList />}
+
+      {/* Tab 2: Classmate Directory */}
+      {activeTab === 'directory' && <StudentDirectory />}
+
+      {/* Tab 3: Portal Overview & Growth Modules */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+                Evaluation & Growth Modules
+              </h2>
+              <p className="text-xs text-slate-500">
+                Approved workspace access for peer evaluations and performance rubrics.
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-semibold text-slate-900">Secure Server-Side Session Active</p>
-            <p className="text-slate-500">
-              Authenticated via HTTP-only session cookie backed by MongoDB. No secrets stored in
-              local storage.
-            </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Card 1: Feedback Rounds */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+              <div className="h-10 w-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-sm">Course Feedback Cycles</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Assigned peer groups, rubric submission criteria, and evaluation schedules
+                configured by your course instructor.
+              </p>
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-1 rounded bg-blue-50 text-blue-700 px-2 py-1 text-[11px] font-semibold">
+                  Stage 5: Live Active
+                </span>
+              </div>
+            </div>
+
+            {/* Card 2: Anonymous Peer Reviews */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+              <div className="h-10 w-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-sm">Anonymous Peer Reviews</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Constructive qualitative feedback loops with privacy protection and moderation
+                filters.
+              </p>
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-1 rounded bg-purple-50 text-purple-700 px-2 py-1 text-[11px] font-semibold">
+                  Stage 5: Anonymity Configured
+                </span>
+              </div>
+            </div>
+
+            {/* Card 3: Longitudinal Growth */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+              <div className="h-10 w-10 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-700">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-sm">Growth & Analytics</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Longitudinal tracking of competency benchmarks, scoring distributions, and
+                constructive peer growth insights.
+              </p>
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 text-slate-700 px-2 py-1 text-[11px] font-medium">
+                  Next Milestone
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Security and Session Verification Notice */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-600">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900">Secure Server-Side Session Active</p>
+                <p className="text-slate-500">
+                  Authenticated via HTTP-only session cookie backed by MongoDB. No secrets stored in
+                  local storage.
+                </p>
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-1.5 text-slate-400 font-mono text-[11px]">
+              <Award className="h-3.5 w-3.5 text-amber-500" />
+              Institutional Clearance
+            </div>
           </div>
         </div>
-        <div className="inline-flex items-center gap-1.5 text-slate-400 font-mono text-[11px]">
-          <Award className="h-3.5 w-3.5 text-amber-500" />
-          Institutional Clearance
-        </div>
-      </div>
+      )}
     </div>
   );
 };

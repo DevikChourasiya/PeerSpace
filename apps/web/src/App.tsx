@@ -101,7 +101,7 @@ export const App: React.FC = () => {
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>
-            PeerSpace — Student Feedback Management System · Stage 4 Admin & Membership Management
+            PeerSpace — Student Feedback Management System · Stage 5 Feedback Rounds & Rubrics
           </span>
           <span className="text-[11px] text-slate-400">Institutional Server Session Protected</span>
         </div>

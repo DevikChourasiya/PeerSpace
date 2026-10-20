@@ -8,6 +8,9 @@ export interface IUser extends Document {
   passwordHash: string;
   role: UserRole;
   status: UserStatus;
+  department?: string;
+  classSection?: string;
+  studentId?: string;
   statusReason?: string;
   statusUpdatedAt?: Date;
   statusUpdatedBy?: mongoose.Types.ObjectId;
@@ -61,6 +64,23 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
       required: true,
       index: true,
     },
+    department: {
+      type: String,
+      trim: true,
+      default: 'Computer Science',
+      index: true,
+    },
+    classSection: {
+      type: String,
+      trim: true,
+      default: 'CS-401',
+      index: true,
+    },
+    studentId: {
+      type: String,
+      trim: true,
+      sparse: true,
+    },
     statusReason: {
       type: String,
       trim: true,
@@ -87,6 +107,10 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
     },
   }
 );
+
+userSchema.index({ role: 1, status: 1 });
+userSchema.index({ role: 1, status: 1, classSection: 1 });
+userSchema.index({ name: 'text', email: 'text' });
 
 userSchema.statics.hashPassword = async function (password: string): Promise<string> {
   const salt = await bcrypt.genSalt(10);

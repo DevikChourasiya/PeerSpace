@@ -14,10 +14,14 @@ import {
   Ban,
   RotateCcw,
   UserCheck,
+  Calendar,
+  FileText,
 } from 'lucide-react';
 import { UserRole, UserStatus, type UserResponse } from '@peerspace/shared';
 import { useAuth } from '../hooks/useAuth';
 import { useAdmin } from '../hooks/useAdmin';
+import { FeedbackRoundManager } from './FeedbackRoundManager';
+import { QuestionnaireBuilder } from './QuestionnaireBuilder';
 
 interface AdminDashboardProps {
   user: UserResponse;
@@ -25,7 +29,9 @@ interface AdminDashboardProps {
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const { logoutMutation } = useAuth();
-  const [activeTab, setActiveTab] = useState<'pending' | 'roster'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'rounds' | 'questionnaires' | 'roster'>(
+    'pending'
+  );
   const [rosterStatusFilter, setRosterStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [feedback, setFeedback] = useState<{
@@ -354,6 +360,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
           <button
             type="button"
+            onClick={() => setActiveTab('rounds')}
+            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+              activeTab === 'rounds'
+                ? 'border-blue-600 text-blue-900 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Calendar className="h-4 w-4" />
+            <span>Feedback Rounds</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('questionnaires')}
+            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+              activeTab === 'questionnaires'
+                ? 'border-blue-600 text-blue-900 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            <span>Questionnaires & Rubrics</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('roster')}
             className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
               activeTab === 'roster'
@@ -474,7 +506,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Tab 2: Institutional Account Roster Content */}
+      {/* Tab 2: Feedback Rounds Content */}
+      {activeTab === 'rounds' && <FeedbackRoundManager />}
+
+      {/* Tab 3: Questionnaire Builder Content */}
+      {activeTab === 'questionnaires' && <QuestionnaireBuilder />}
+
+      {/* Tab 4: Institutional Account Roster Content */}
       {activeTab === 'roster' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
