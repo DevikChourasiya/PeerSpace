@@ -1,5 +1,12 @@
 import { Router } from 'express';
-import { register, login, logout, getMe } from '../controllers/auth.controller.js';
+import {
+  register,
+  login,
+  logout,
+  getMe,
+  verifyEmail,
+  resendVerification,
+} from '../controllers/auth.controller.js';
 import { requireAuth, requireRole, requireApprovedMembership } from '../middlewares/auth.js';
 import { authRateLimiter } from '../middlewares/rateLimiter.js';
 import { UserRole } from '@peerspace/shared';
@@ -10,6 +17,9 @@ export const authRouter = Router();
 authRouter.post('/register', authRateLimiter, register);
 authRouter.post('/login', authRateLimiter, login);
 authRouter.post('/logout', logout);
+authRouter.post('/verify-email', verifyEmail);
+authRouter.get('/verify-email', verifyEmail);
+authRouter.post('/resend-verification', authRateLimiter, resendVerification);
 
 // Authenticated user profile
 authRouter.get('/me', requireAuth, getMe);

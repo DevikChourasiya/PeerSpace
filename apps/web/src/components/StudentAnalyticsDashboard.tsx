@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Chart as ChartJS,
   RadarController,
@@ -23,8 +23,12 @@ import {
   Star,
   Calendar,
   Sparkles,
+  Flag,
+  EyeOff,
+  CheckCircle2,
 } from 'lucide-react';
 import { useStudentAnalytics, useReceivedFeedback } from '../hooks/useFeedbackAnalytics';
+import { ReportFeedbackModal } from './ReportFeedbackModal';
 
 // Register Chart.js components including controllers, elements, scales, and plugins
 ChartJS.register(
@@ -45,6 +49,14 @@ ChartJS.register(
 export const StudentAnalyticsDashboard: React.FC = () => {
   const { data: analytics, isLoading: isAnalyticsLoading } = useStudentAnalytics();
   const { data: feedbackList, isLoading: isFeedbackLoading } = useReceivedFeedback();
+
+  const [reportingComment, setReportingComment] = useState<{
+    submissionId: string;
+    questionId: string;
+    questionTitle: string;
+    commentText: string;
+  } | null>(null);
+  const [reportSuccessToast, setReportSuccessToast] = useState<string | null>(null);
 
   const radarCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const barCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -262,45 +274,47 @@ export const StudentAnalyticsDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner / Metrics Overview */}
+      {/* Top Banner / Metrics Overview - Tactile Pastel Surfaces */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">
-              Evaluations Received
-            </span>
-            <Users className="h-4 w-4 text-blue-600" />
+        <div className="rounded-2xl border border-[#5B9CF6]/30 bg-[#EDF5FD] dark:bg-sky-950/30 p-5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-[#5B9CF6]">
+            <span className="text-xs font-bold uppercase tracking-wider">Evaluations Received</span>
+            <Users className="h-4 w-4" />
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">
+          <div className="text-2xl font-extrabold text-[#1C1B18] dark:text-[#F5F2EB]">
             {isLoading ? '--' : analytics?.totalEvaluationsReceived || 0}
           </div>
-          <p className="text-[11px] text-slate-400">Total peer reviews completed for you</p>
+          <p className="text-[11px] text-[#5C5952] dark:text-[#B5B0A4]">
+            Total peer reviews completed for you
+          </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">
-              Your Average Score
-            </span>
-            <Award className="h-4 w-4 text-amber-500" />
+        <div className="rounded-2xl border border-[#F47B55]/30 bg-[#FDF2EC] dark:bg-amber-950/30 p-5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-[#F47B55]">
+            <span className="text-xs font-bold uppercase tracking-wider">Your Average Score</span>
+            <Award className="h-4 w-4" />
           </div>
-          <div className="text-2xl font-extrabold text-slate-900 flex items-center gap-1">
+          <div className="text-2xl font-extrabold text-[#1C1B18] dark:text-[#F5F2EB] flex items-center gap-1">
             {isLoading ? '--' : (analytics?.overallAverageScore || 0).toFixed(1)}
-            <span className="text-xs font-normal text-slate-400">/ 5.0</span>
+            <span className="text-xs font-normal text-[#5C5952] dark:text-[#B5B0A4]">/ 5.0</span>
           </div>
-          <p className="text-[11px] text-slate-400">Across all evaluated rubric categories</p>
+          <p className="text-[11px] text-[#5C5952] dark:text-[#B5B0A4]">
+            Across all evaluated rubric categories
+          </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Cohort Benchmark</span>
-            <TrendingUp className="h-4 w-4 text-emerald-600" />
+        <div className="rounded-2xl border border-[#34A866]/30 bg-[#EEF9F2] dark:bg-emerald-950/30 p-5 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-[#34A866]">
+            <span className="text-xs font-bold uppercase tracking-wider">Cohort Benchmark</span>
+            <TrendingUp className="h-4 w-4" />
           </div>
-          <div className="text-2xl font-extrabold text-slate-900 flex items-center gap-1">
+          <div className="text-2xl font-extrabold text-[#1C1B18] dark:text-[#F5F2EB] flex items-center gap-1">
             {isLoading ? '--' : (analytics?.cohortAverageScore || 0).toFixed(1)}
-            <span className="text-xs font-normal text-slate-400">/ 5.0</span>
+            <span className="text-xs font-normal text-[#5C5952] dark:text-[#B5B0A4]">/ 5.0</span>
           </div>
-          <p className="text-[11px] text-slate-400">Class-wide average performance</p>
+          <p className="text-[11px] text-[#5C5952] dark:text-[#B5B0A4]">
+            Class-wide average performance
+          </p>
         </div>
       </div>
 
@@ -379,6 +393,27 @@ export const StudentAnalyticsDashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Success Alert Toast */}
+        {reportSuccessToast && (
+          <div
+            role="status"
+            className="m-4 flex items-center justify-between gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800"
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span>{reportSuccessToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReportSuccessToast(null)}
+              className="text-emerald-600 hover:text-emerald-800 p-1"
+              aria-label="Dismiss message"
+            >
+              &times;
+            </button>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="p-12 text-center text-xs text-slate-400">
             Loading received feedback...
@@ -423,7 +458,7 @@ export const StudentAnalyticsDashboard: React.FC = () => {
                 {/* Responses breakdown */}
                 <div className="space-y-2 pt-2 border-t border-slate-200/60">
                   {item.responses.map((resp, rIdx) => (
-                    <div key={rIdx} className="text-xs space-y-0.5">
+                    <div key={rIdx} className="text-xs space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-slate-700">{resp.title}</span>
                         {resp.rating !== undefined && (
@@ -433,11 +468,34 @@ export const StudentAnalyticsDashboard: React.FC = () => {
                           </span>
                         )}
                       </div>
-                      {resp.comment && (
-                        <p className="text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200/70 italic text-[11px] leading-relaxed">
-                          "{resp.comment}"
-                        </p>
-                      )}
+                      {resp.isCommentHidden ? (
+                        <div className="flex items-center gap-1.5 text-slate-400 bg-slate-100/70 p-2.5 rounded-lg border border-slate-200/50 text-[11px] italic">
+                          <EyeOff className="h-3.5 w-3.5 shrink-0" />
+                          <span>[Feedback comment hidden by moderator for policy violation]</span>
+                        </div>
+                      ) : resp.comment ? (
+                        <div className="relative group">
+                          <p className="text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200/70 italic text-[11px] leading-relaxed pr-16">
+                            "{resp.comment}"
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setReportingComment({
+                                submissionId: item.id,
+                                questionId: resp.questionId,
+                                questionTitle: resp.title,
+                                commentText: resp.comment || '',
+                              })
+                            }
+                            className="absolute top-2 right-2 inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded transition-colors"
+                            title="Report this feedback comment"
+                          >
+                            <Flag className="h-3 w-3" />
+                            <span>Report</span>
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -446,6 +504,24 @@ export const StudentAnalyticsDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Report Feedback Modal */}
+      {reportingComment && (
+        <ReportFeedbackModal
+          submissionId={reportingComment.submissionId}
+          questionId={reportingComment.questionId}
+          questionTitle={reportingComment.questionTitle}
+          commentText={reportingComment.commentText}
+          onClose={() => setReportingComment(null)}
+          onSuccess={() => {
+            setReportingComment(null);
+            setReportSuccessToast(
+              'Your report was submitted and will be reviewed by an administrator.'
+            );
+            setTimeout(() => setReportSuccessToast(null), 6000);
+          }}
+        />
+      )}
     </div>
   );
 };

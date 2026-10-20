@@ -21,6 +21,7 @@ describe('Stage 6: Student Feedback Submissions, Analytics, Schedulers & Audit L
   const app = createApp();
   const timestamp = Date.now();
   const createdUserIds: string[] = [];
+  const createdQuestionnaireIds: string[] = [];
   const getSessionCookie = (res: { headers: Record<string, any> }): string => {
     const raw = res.headers['set-cookie'];
     const cookies: string[] = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [];
@@ -145,6 +146,7 @@ describe('Stage 6: Student Feedback Submissions, Analytics, Schedulers & Audit L
       createdBy: adminUserId,
     });
     await rubricQ.save();
+    createdQuestionnaireIds.push(rubricQ.id);
 
     // Publish version
     const pubRes = await request(app)
@@ -211,6 +213,12 @@ describe('Stage 6: Student Feedback Submissions, Analytics, Schedulers & Audit L
 
   afterAll(async () => {
     try {
+      if (createdQuestionnaireIds.length > 0) {
+        await QuestionnaireVersion.deleteMany({
+          questionnaireId: { $in: createdQuestionnaireIds },
+        });
+        await Questionnaire.deleteMany({ _id: { $in: createdQuestionnaireIds } });
+      }
       if (createdUserIds.length > 0) {
         await User.deleteMany({ _id: { $in: createdUserIds } });
         await FeedbackRound.deleteMany({ targetClass: `CS-STAGE6-${timestamp}` });
@@ -612,6 +620,7 @@ describe('Stage 6: Student Feedback Submissions, Analytics, Schedulers & Audit L
         passwordHash: await User.hashPassword('Pass123!'),
         role: UserRole.STUDENT,
         status: UserStatus.PENDING,
+        isEmailVerified: true,
       });
       await pendingStudent.save();
       createdUserIds.push(pendingStudent.id);

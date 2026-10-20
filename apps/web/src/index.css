@@ -14,6 +14,10 @@
     Ubuntu,
     Cantarell,
     sans-serif;
+  color-scheme: light;
+}
+
+.dark {
   color-scheme: dark;
 }
 
@@ -22,6 +26,17 @@ body {
   display: flex;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #f5f2eb;
+  color: #1c1b18;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.dark body,
+html.dark body {
+  background-color: #181715;
+  color: #f5f2eb;
 }
 
 #root {

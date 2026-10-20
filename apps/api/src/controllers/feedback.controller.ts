@@ -70,7 +70,8 @@ export const getReceivedFeedback = async (
           questionType: r.questionType || qDef?.type || QuestionType.SHORT_TEXT,
           rating: r.rating,
           value: r.value,
-          comment: r.comment,
+          comment: r.isCommentHidden ? undefined : r.comment,
+          isCommentHidden: !!r.isCommentHidden,
         };
       });
 

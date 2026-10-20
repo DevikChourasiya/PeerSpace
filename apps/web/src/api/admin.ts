@@ -151,3 +151,26 @@ export async function reactivateUserAccount(id: string): Promise<AdminMemberActi
 
   return handleResponse<AdminMemberActionResponse>(response);
 }
+
+/**
+ * Permanently delete an eligible suspended user account
+ */
+export async function permanentlyDeleteUser(id: string): Promise<{
+  success: true;
+  message: string;
+  deletedUser: { id: string; email: string; name: string };
+}> {
+  const response = await fetch(`/api/admin/memberships/${id}`, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  return handleResponse<{
+    success: true;
+    message: string;
+    deletedUser: { id: string; email: string; name: string };
+  }>(response);
+}

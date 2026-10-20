@@ -70,9 +70,9 @@ export const AuthPage: React.FC = () => {
               <ShieldCheck className="h-4 w-4 text-blue-400" />
               Official Institutional Portal
             </span>
-            <span className="flex items-center gap-1.5 font-mono text-slate-400">
+            <span className="flex items-center gap-1.5 font-medium text-slate-400">
               <Users className="h-3.5 w-3.5" />
-              Stage 3
+              Academic Portal
             </span>
           </div>
         </div>

@@ -15,7 +15,7 @@ export const getPendingStudents = async (
       role: UserRole.STUDENT,
       status: UserStatus.PENDING,
     })
-      .select('name email role status createdAt statusReason')
+      .select('name email role status isEmailVerified createdAt statusReason')
       .sort({ createdAt: 1 })
       .lean();
 
@@ -28,6 +28,7 @@ export const getPendingStudents = async (
         email: student.email,
         role: student.role,
         status: student.status,
+        isEmailVerified: student.isEmailVerified ?? false,
         createdAt: student.createdAt,
         statusReason: student.statusReason,
       })),
@@ -52,7 +53,7 @@ export const getAllMembers = async (
     }
 
     const members = await User.find(filter)
-      .select('name email role status createdAt updatedAt statusReason')
+      .select('name email role status isEmailVerified createdAt updatedAt statusReason')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -65,6 +66,8 @@ export const getAllMembers = async (
         email: m.email,
         role: m.role,
         status: m.status,
+        isEmailVerified:
+          m.isEmailVerified ?? (m.role === UserRole.ADMIN || m.status === UserStatus.ACTIVE),
         createdAt: m.createdAt,
         updatedAt: m.updatedAt,
         statusReason: m.statusReason,
@@ -113,6 +116,18 @@ export const approveStudent = async (
         error: {
           code: 'ACCOUNT_NOT_PENDING',
           message: `Only pending accounts can be approved. Current status is "${existingUser.status}".`,
+        },
+      });
+      return;
+    }
+
+    if (existingUser.role === UserRole.STUDENT && existingUser.isEmailVerified === false) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'EMAIL_NOT_VERIFIED',
+          message:
+            'Cannot approve student account because their university email address has not been verified.',
         },
       });
       return;
@@ -434,6 +449,130 @@ export const reactivateUser = async (
       success: true,
       message: 'Account reactivated successfully.',
       user: existingUser.toJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Permanently delete an eligible suspended user.
+ * Restricted to administrators; target user must be SUSPENDED; cannot delete self or last admin.
+ * Destroys active sessions, preserves peer submission integrity, and logs audit trail.
+ */
+export const deleteSuspendedUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_USER_ID',
+          message: 'The supplied user ID is invalid.',
+        },
+      });
+      return;
+    }
+
+    // Rule: Prevent self-deletion
+    if (req.user?.id === id) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'CANNOT_DELETE_SELF',
+          message: 'Administrators cannot delete their own account.',
+        },
+      });
+      return;
+    }
+
+    const targetUser = await User.findById(id);
+
+    if (!targetUser) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'The requested user was not found.',
+        },
+      });
+      return;
+    }
+
+    // Rule: Only suspended accounts can be permanently deleted
+    if (targetUser.status !== UserStatus.SUSPENDED) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'ACCOUNT_NOT_SUSPENDED',
+          message: `Only suspended accounts can be permanently deleted. Current status is "${targetUser.status}".`,
+        },
+      });
+      return;
+    }
+
+    // Rule: Prevent deleting the last remaining admin
+    if (targetUser.role === UserRole.ADMIN) {
+      const adminCount = await User.countDocuments({ role: UserRole.ADMIN });
+      if (adminCount <= 1) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'CANNOT_DELETE_LAST_ADMIN',
+            message: 'Cannot delete the only remaining administrator in the system.',
+          },
+        });
+        return;
+      }
+    }
+
+    // 1. Invalidate all active sessions for this user in MongoDB session store
+    try {
+      await mongoose.connection.collection('sessions').deleteMany({
+        $or: [{ 'session.userId': id }, { session: { $regex: id } }],
+      });
+    } catch {
+      // In-memory or custom session store in tests
+    }
+
+    // 2. Capture user snapshot for audit log before deletion
+    const deletedUserInfo = {
+      email: targetUser.email,
+      name: targetUser.name,
+      role: targetUser.role,
+      status: targetUser.status,
+    };
+
+    // 3. Delete user document permanently
+    await User.deleteOne({ _id: id });
+
+    // 4. Log audit event
+    await logAuditEvent({
+      req,
+      action: AuditAction.USER_DELETED,
+      entityType: 'User',
+      entityId: id,
+      details: {
+        deletedUserEmail: deletedUserInfo.email,
+        deletedUserName: deletedUserInfo.name,
+        deletedUserRole: deletedUserInfo.role,
+        reason: 'Account permanently deleted by administrator',
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Suspended user account permanently deleted.',
+      deletedUser: {
+        id,
+        email: deletedUserInfo.email,
+        name: deletedUserInfo.name,
+      },
     });
   } catch (error) {
     next(error);

@@ -144,6 +144,7 @@ describe('Security Remediation Phase 1 Verification', () => {
       passwordHash: await User.hashPassword(commonPassword),
       role: UserRole.STUDENT,
       status: UserStatus.PENDING,
+      isEmailVerified: true,
       classSection: cohortA,
     });
     await pendingStudent.save();

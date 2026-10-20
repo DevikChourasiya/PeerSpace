@@ -10,3 +10,4 @@ export * from './schemas/directory.js';
 export * from './schemas/submission.js';
 export * from './schemas/analytics.js';
 export * from './schemas/audit.js';
+export * from './schemas/moderation.js';

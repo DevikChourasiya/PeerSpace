@@ -137,7 +137,21 @@ describe('Administrator Membership Management & Approval APIs (Stage 4)', () => 
       expect(found.status).toBe(UserStatus.PENDING);
     });
 
+    it('rejects administrator approval of an unverified student account with 400 EMAIL_NOT_VERIFIED', async () => {
+      const res = await request(app)
+        .post(`/api/admin/memberships/${pendingStudentId}/approve`)
+        .set('Cookie', adminCookie);
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('EMAIL_NOT_VERIFIED');
+      expect(res.body.error.message).toMatch(/not been verified/i);
+    });
+
     it('verifies pending student cannot access approved membership features before approval', async () => {
+      // Mark email as verified to simulate completed email verification step
+      await User.findByIdAndUpdate(pendingStudentId, { isEmailVerified: true });
+
       const res = await request(app)
         .get('/api/auth/membership-test')
         .set('Cookie', pendingStudentCookie);
@@ -308,6 +322,98 @@ describe('Administrator Membership Management & Approval APIs (Stage 4)', () => 
         .set('Cookie', studentCookie);
 
       expect(testRes.status).toBe(200);
+    });
+  });
+
+  describe('4. Permanent Deletion of Suspended Accounts', () => {
+    it('denies unauthenticated request with 401 UNAUTHORIZED', async () => {
+      const res = await request(app).delete(`/api/admin/memberships/${studentUserId}`);
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('denies student access with 403 FORBIDDEN', async () => {
+      const res = await request(app)
+        .delete(`/api/admin/memberships/${studentUserId}`)
+        .set('Cookie', studentCookie);
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('prevents administrator from deleting their own account', async () => {
+      const res = await request(app)
+        .delete(`/api/admin/memberships/${adminUserId}`)
+        .set('Cookie', adminCookie);
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('CANNOT_DELETE_SELF');
+    });
+
+    it('rejects deletion of an active user with 409 ACCOUNT_NOT_SUSPENDED', async () => {
+      const res = await request(app)
+        .delete(`/api/admin/memberships/${studentUserId}`)
+        .set('Cookie', adminCookie);
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('ACCOUNT_NOT_SUSPENDED');
+    });
+
+    it('successfully permanently deletes a suspended user and invalidates session', async () => {
+      // 1. Create a student to be suspended and then deleted
+      const tempPassword = 'TempStudent123!';
+      const tempHash = await User.hashPassword(tempPassword);
+      const tempStudent = new User({
+        name: 'Delete Me Student',
+        email: `delete.me.${timestamp}@university.edu`,
+        passwordHash: tempHash,
+        role: UserRole.STUDENT,
+        status: UserStatus.ACTIVE,
+      });
+      await tempStudent.save();
+      const tempStudentId = tempStudent.id;
+      createdUserIds.push(tempStudentId);
+
+      // 2. Log in the student to create a session
+      const loginRes = await request(app).post('/api/auth/login').send({
+        email: tempStudent.email,
+        password: tempPassword,
+      });
+      const tempCookie = getSessionCookie(loginRes);
+
+      // Verify session works
+      const meRes = await request(app).get('/api/auth/me').set('Cookie', tempCookie);
+      expect(meRes.status).toBe(200);
+
+      // 3. Suspend the student
+      const suspendRes = await request(app)
+        .post(`/api/admin/memberships/${tempStudentId}/suspend`)
+        .set('Cookie', adminCookie)
+        .send({ reason: 'Suspended prior to removal' });
+      expect(suspendRes.status).toBe(200);
+
+      // 4. Permanently delete the suspended student
+      const deleteRes = await request(app)
+        .delete(`/api/admin/memberships/${tempStudentId}`)
+        .set('Cookie', adminCookie);
+
+      expect(deleteRes.status).toBe(200);
+      expect(deleteRes.body.success).toBe(true);
+      expect(deleteRes.body.message).toMatch(/permanently deleted/i);
+      expect(deleteRes.body.deletedUser.id).toBe(tempStudentId);
+
+      // 5. Verify user document is gone from MongoDB
+      const dbCheck = await User.findById(tempStudentId);
+      expect(dbCheck).toBeNull();
+
+      // 6. Verify session is invalidated (returns 401)
+      const afterMeRes = await request(app).get('/api/auth/me').set('Cookie', tempCookie);
+      expect(afterMeRes.status).toBe(401);
+
+      // 7. Verify audit logs record USER_DELETED
+      const auditRes = await request(app)
+        .get(`/api/admin/audit-logs?entityType=User&action=USER_DELETED`)
+        .set('Cookie', adminCookie);
+
+      expect(auditRes.status).toBe(200);
+      expect(auditRes.body.data.items.some((i: any) => i.entityId === tempStudentId)).toBe(true);
     });
   });
 });

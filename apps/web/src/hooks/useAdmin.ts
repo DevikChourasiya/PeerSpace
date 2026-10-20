@@ -6,6 +6,7 @@ import {
   rejectStudentMembership,
   suspendUserAccount,
   reactivateUserAccount,
+  permanentlyDeleteUser,
   AdminApiError,
   type AdminAllMembersResponse,
 } from '../api/admin';
@@ -74,6 +75,17 @@ export function useAdmin(statusFilter?: string) {
     },
   });
 
+  const permanentlyDeleteMutation = useMutation<
+    { success: true; message: string; deletedUser: { id: string; email: string; name: string } },
+    AdminApiError,
+    string
+  >({
+    mutationFn: permanentlyDeleteUser,
+    onSuccess: async () => {
+      await invalidateAdminQueries();
+    },
+  });
+
   return {
     pendingQuery,
     allMembersQuery,
@@ -81,6 +93,7 @@ export function useAdmin(statusFilter?: string) {
     rejectMutation,
     suspendMutation,
     reactivateMutation,
+    permanentlyDeleteMutation,
     invalidateAdminQueries,
   };
 }

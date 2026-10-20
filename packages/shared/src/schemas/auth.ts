@@ -59,11 +59,27 @@ export const UserResponseSchema = z.object({
   email: z.string().email(),
   role: UserRoleSchema,
   status: UserStatusSchema,
+  isEmailVerified: z.boolean().optional(),
+  department: z.string().optional(),
+  classSection: z.string().optional(),
+  studentId: z.string().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
 
 export type UserResponse = z.infer<typeof UserResponseSchema>;
+
+export const VerifyEmailRequestSchema = z.object({
+  token: z.string().trim().min(1, 'Verification token is required'),
+});
+
+export type VerifyEmailRequest = z.infer<typeof VerifyEmailRequestSchema>;
+
+export const ResendVerificationRequestSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Please provide a valid email address'),
+});
+
+export type ResendVerificationRequest = z.infer<typeof ResendVerificationRequestSchema>;
 
 export const AuthResponseSchema = z.object({
   message: z.string(),

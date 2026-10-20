@@ -13,6 +13,7 @@ import {
   Edit3,
   CheckCircle2,
   X,
+  Lock,
 } from 'lucide-react';
 import type { PeerCandidate } from '@peerspace/shared';
 import { useStudentRounds } from '../hooks/useRounds';
@@ -48,17 +49,17 @@ export const StudentRoundsList: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-darkSurface-card p-5 rounded-2xl border border-lavender-200/80 dark:border-darkSurface-border shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
-              <Calendar className="h-4 w-4" />
+          <div className="flex items-center gap-2.5">
+            <span className="h-9 w-9 rounded-xl bg-lavender-100 dark:bg-lavender-950/60 text-lavender-600 dark:text-lavender-300 flex items-center justify-center">
+              <Calendar className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Assigned Feedback & Evaluation Rounds
+              <h2 className="text-base font-bold text-slate-900 dark:text-lavender-100">
+                Assigned Feedback Rounds
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-darkSurface-muted">
                 Peer review cycles scheduled for your course cohort and section.
               </p>
             </div>
@@ -69,24 +70,28 @@ export const StudentRoundsList: React.FC = () => {
           type="button"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex items-center gap-1.5 self-start sm:self-auto px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 self-start sm:self-auto px-3.5 py-1.5 rounded-xl border border-lavender-200 dark:border-darkSurface-border bg-lavender-50/50 dark:bg-darkSurface-bg hover:bg-lavender-100 dark:hover:bg-darkSurface-cardHover text-xs font-semibold text-slate-700 dark:text-lavender-200 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin text-blue-600' : ''}`} />
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin text-lavender-500' : ''}`}
+          />
           <span>Sync Rounds</span>
         </button>
       </div>
 
       {/* Content Body */}
       {isLoading ? (
-        <div className="p-16 text-center text-slate-500 text-xs bg-white rounded-2xl border border-slate-200">
-          <RefreshCw className="h-7 w-7 animate-spin mx-auto mb-3 text-indigo-600" />
-          <p className="font-semibold text-slate-700">Loading scheduled feedback rounds...</p>
+        <div className="p-16 text-center text-slate-500 dark:text-darkSurface-muted text-xs bg-white dark:bg-darkSurface-card rounded-2xl border border-lavender-200/80 dark:border-darkSurface-border">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-3 text-lavender-500" />
+          <p className="font-semibold text-slate-700 dark:text-lavender-200">
+            Loading scheduled feedback rounds...
+          </p>
         </div>
       ) : error ? (
-        <div className="p-12 text-center bg-rose-50 border border-rose-200 rounded-2xl text-rose-800">
-          <AlertCircle className="h-8 w-8 text-rose-600 mx-auto mb-2" />
+        <div className="p-12 text-center bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-2xl text-rose-800 dark:text-rose-300">
+          <AlertCircle className="h-8 w-8 text-rose-600 dark:text-rose-400 mx-auto mb-2" />
           <p className="font-bold text-sm">Failed to load feedback rounds</p>
-          <p className="text-xs text-rose-700 mt-1">{error.message}</p>
+          <p className="text-xs text-rose-700 dark:text-rose-400 mt-1">{error.message}</p>
           <button
             type="button"
             onClick={() => refetch()}
@@ -96,12 +101,13 @@ export const StudentRoundsList: React.FC = () => {
           </button>
         </div>
       ) : rounds.length === 0 ? (
-        <div className="p-16 text-center bg-white rounded-2xl border border-slate-200 space-y-3">
-          <Calendar className="h-10 w-10 text-slate-400 mx-auto" />
-          <p className="text-sm font-semibold text-slate-800">No Feedback Cycles Active</p>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Your course instructor has not yet launched a feedback round for your cohort. Check back
-            soon!
+        <div className="p-16 text-center bg-white dark:bg-darkSurface-card rounded-2xl border border-lavender-200/80 dark:border-darkSurface-border space-y-3">
+          <Calendar className="h-10 w-10 text-lavender-300 dark:text-darkSurface-muted mx-auto" />
+          <p className="text-sm font-semibold text-slate-800 dark:text-lavender-200">
+            No Feedback Rounds Currently Active
+          </p>
+          <p className="text-xs text-slate-500 dark:text-darkSurface-muted max-w-sm mx-auto">
+            Your instructor has not yet launched a feedback round for your cohort. Check back soon!
           </p>
         </div>
       ) : (
@@ -113,33 +119,33 @@ export const StudentRoundsList: React.FC = () => {
             return (
               <div
                 key={round.id}
-                className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-indigo-200 hover:shadow-sm transition-all"
+                className="bg-white dark:bg-darkSurface-card rounded-2xl border border-lavender-200/80 dark:border-darkSurface-border p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-lavender-300 dark:hover:border-lavender-600 hover:shadow-soft-purple transition-all"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${
                         isOpen
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300/40'
+                          ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300/40 dark:border-emerald-700/40'
                           : round.status === 'scheduled'
-                            ? 'bg-blue-100 text-blue-800 border border-blue-300/40'
-                            : 'bg-slate-100 text-slate-700 border border-slate-300/40'
+                            ? 'bg-sky-100 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-300/40 dark:border-sky-700/40'
+                            : 'bg-slate-100 dark:bg-darkSurface-bg text-slate-700 dark:text-darkSurface-muted border border-slate-300/40 dark:border-darkSurface-border'
                       }`}
                     >
                       <Clock className="h-3 w-3" />
-                      {round.status}
+                      {isOpen ? 'Open' : round.status}
                     </span>
 
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
                         round.isAnonymous
-                          ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                          : 'bg-slate-100 text-slate-700'
+                          ? 'bg-lavender-100 dark:bg-lavender-950/50 text-lavender-700 dark:text-lavender-300 border border-lavender-200 dark:border-lavender-800/40'
+                          : 'bg-slate-100 dark:bg-darkSurface-bg text-slate-700 dark:text-darkSurface-muted'
                       }`}
                     >
                       {round.isAnonymous ? (
                         <>
-                          <EyeOff className="h-3 w-3 text-purple-600" />
+                          <EyeOff className="h-3 w-3 text-lavender-500" />
                           <span>Anonymous Review</span>
                         </>
                       ) : (
@@ -152,37 +158,39 @@ export const StudentRoundsList: React.FC = () => {
                   </div>
 
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-lavender-100 tracking-tight">
                       {round.title}
                     </h3>
                     {round.description && (
-                      <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-slate-600 dark:text-darkSurface-muted mt-1 line-clamp-2 leading-relaxed">
                         {round.description}
                       </p>
                     )}
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 space-y-2 text-xs text-slate-600">
+                <div className="pt-3 border-t border-lavender-100 dark:border-darkSurface-border space-y-2 text-xs text-slate-600 dark:text-lavender-200">
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-slate-500">
-                      <FileText className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="flex items-center gap-1.5 text-slate-500 dark:text-darkSurface-muted">
+                      <FileText className="h-3.5 w-3.5 text-lavender-400" />
                       Questionnaire:
                     </span>
-                    <span className="font-semibold text-slate-800 truncate max-w-[200px]">
+                    <span className="font-semibold text-slate-800 dark:text-lavender-100 truncate max-w-[200px]">
                       {round.questionnaireTitle || 'Configured Rubric'} ({round.questionCount}{' '}
                       questions)
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-slate-500">
-                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="flex items-center gap-1.5 text-slate-500 dark:text-darkSurface-muted">
+                      <Clock className="h-3.5 w-3.5 text-lavender-400" />
                       Submission Deadline:
                     </span>
                     <span
                       className={`font-semibold ${
-                        isDeadlinePassed ? 'text-red-600' : 'text-slate-800'
+                        isDeadlinePassed
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-slate-800 dark:text-lavender-100'
                       }`}
                     >
                       {new Date(round.deadline).toLocaleDateString(undefined, {
@@ -195,27 +203,58 @@ export const StudentRoundsList: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="pt-2 flex items-center justify-between">
-                    <div className="text-[11px] text-slate-400 flex items-center gap-1">
-                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                  <div className="pt-3 flex items-center justify-between gap-2 border-t border-lavender-50 dark:border-darkSurface-borderLight/30">
+                    <div className="text-[11px] text-slate-400 dark:text-darkSurface-muted flex items-center gap-1">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
                       <span>Cohort: {round.targetClass}</span>
                     </div>
 
+                    {/* Explicit Action Button in Every State */}
                     {isOpen ? (
                       <button
                         type="button"
                         onClick={() => setSelectedRound(round)}
                         aria-label={`Evaluate peers for ${round.title}`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold text-xs hover:bg-blue-700 transition-colors shadow-xs"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-lavender-500 to-sky-500 hover:from-lavender-600 hover:to-sky-600 text-white font-semibold text-xs transition-all shadow-md shadow-lavender-500/25 active:scale-95"
                       >
                         <Users className="h-3.5 w-3.5" />
-                        <span>Evaluate Peers</span>
+                        <span>Give Feedback</span>
                         <ChevronRight className="h-3.5 w-3.5" />
                       </button>
+                    ) : isDeadlinePassed ? (
+                      <button
+                        type="button"
+                        disabled
+                        aria-disabled="true"
+                        className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-darkSurface-bg border border-slate-200 dark:border-darkSurface-border text-slate-400 dark:text-darkSurface-muted text-xs font-semibold cursor-not-allowed opacity-75"
+                      >
+                        <span>Round Closed</span>
+                      </button>
+                    ) : round.status === 'scheduled' ? (
+                      <button
+                        type="button"
+                        disabled
+                        aria-disabled="true"
+                        className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-darkSurface-bg border border-slate-200 dark:border-darkSurface-border text-slate-400 dark:text-darkSurface-muted text-xs font-semibold cursor-not-allowed opacity-75"
+                      >
+                        <span>
+                          Opens{' '}
+                          {new Date(round.startDate).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </span>
+                      </button>
                     ) : (
-                      <span className="text-[11px] text-slate-400 italic">
-                        {isDeadlinePassed ? 'Submissions Closed' : 'Scheduled to Open'}
-                      </span>
+                      <button
+                        type="button"
+                        disabled
+                        aria-disabled="true"
+                        className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-darkSurface-bg border border-slate-200 dark:border-darkSurface-border text-slate-400 dark:text-darkSurface-muted text-xs font-semibold cursor-not-allowed opacity-75"
+                      >
+                        <Lock className="h-3 w-3" />
+                        <span>Locked</span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -276,30 +315,36 @@ const PeerCandidateSelectorModal: React.FC<PeerCandidateSelectorModalProps> = ({
       aria-labelledby="peer-selector-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs"
     >
-      <div className="relative w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200 p-6 space-y-4">
-        <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+      <div className="relative w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white dark:bg-darkSurface-card shadow-2xl border border-lavender-200 dark:border-darkSurface-border p-6 space-y-4">
+        <div className="flex items-start justify-between border-b border-lavender-100 dark:border-darkSurface-border pb-3">
           <div>
-            <h3 id="peer-selector-title" className="text-base font-bold text-slate-900">
+            <h3
+              id="peer-selector-title"
+              className="text-base font-bold text-slate-900 dark:text-lavender-100"
+            >
               Select a Peer to Evaluate
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Round: <span className="font-semibold text-slate-800">{round.title}</span> (
-              {currentSubmittedCount}/{maxSubmissions} evaluations completed)
+            <p className="text-xs text-slate-500 dark:text-darkSurface-muted mt-0.5">
+              Round:{' '}
+              <span className="font-semibold text-slate-800 dark:text-lavender-200">
+                {round.title}
+              </span>{' '}
+              ({currentSubmittedCount}/{maxSubmissions} evaluations completed)
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close peer selector"
-            className="p-1 rounded text-slate-400 hover:text-slate-700"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-lavender-200 hover:bg-lavender-50 dark:hover:bg-darkSurface-cardHover"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {isLimitReached && (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-amber-600 shrink-0" />
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
             <span>
               You have completed the maximum allowed evaluations ({maxSubmissions}) for this cycle.
             </span>
@@ -307,9 +352,11 @@ const PeerCandidateSelectorModal: React.FC<PeerCandidateSelectorModalProps> = ({
         )}
 
         {isLoading ? (
-          <div className="p-8 text-center text-xs text-slate-400">Loading cohort classmates...</div>
+          <div className="p-8 text-center text-xs text-slate-400 dark:text-darkSurface-muted">
+            Loading cohort classmates...
+          </div>
         ) : candidates.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-500">
+          <div className="p-8 text-center text-xs text-slate-500 dark:text-darkSurface-muted">
             No other students found in cohort "{round.targetClass}".
           </div>
         ) : (
@@ -322,47 +369,51 @@ const PeerCandidateSelectorModal: React.FC<PeerCandidateSelectorModalProps> = ({
               return (
                 <div
                   key={peer.id}
-                  className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50/50 transition-colors"
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-lavender-200/70 dark:border-darkSurface-border hover:border-lavender-300 dark:hover:border-lavender-700 bg-lavender-50/40 dark:bg-darkSurface-bg/50 transition-colors"
                 >
                   <div className="space-y-0.5">
-                    <div className="font-semibold text-xs text-slate-900">{peer.name}</div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="font-semibold text-xs text-slate-900 dark:text-lavender-100">
+                      {peer.name}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-darkSurface-muted">
                       {peer.department || 'Student'} • {peer.classSection || round.targetClass}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {isSubmitted ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full">
                         <CheckCircle2 className="h-3 w-3" />
                         Submitted
                       </span>
                     ) : isDraft ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 px-2.5 py-0.5 rounded-full">
                         <Edit3 className="h-3 w-3" />
                         Draft Saved
                       </span>
                     ) : (
-                      <span className="text-[10px] font-medium text-slate-400">Not Started</span>
+                      <span className="text-[10px] font-medium text-slate-400 dark:text-darkSurface-muted">
+                        Not Started
+                      </span>
                     )}
 
                     <button
                       type="button"
                       disabled={!canClick}
                       onClick={() => onSelectPeer(peer)}
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      className={`inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                         isSubmitted
-                          ? 'border border-slate-200 text-slate-700 hover:bg-slate-100'
-                          : 'bg-blue-600 text-white hover:bg-blue-700 shadow-xs'
+                          ? 'border border-lavender-200 dark:border-darkSurface-border text-slate-700 dark:text-lavender-200 hover:bg-white dark:hover:bg-darkSurface-card'
+                          : 'bg-gradient-to-r from-lavender-500 to-sky-500 text-white hover:from-lavender-600 hover:to-sky-600 shadow-soft-purple active:scale-95'
                       }`}
                     >
                       {isSubmitted
                         ? round.allowSubmissionEdit
-                          ? 'Edit'
-                          : 'View'
+                          ? 'Edit Feedback'
+                          : 'View Feedback'
                         : isDraft
-                          ? 'Continue'
-                          : 'Evaluate'}
+                          ? 'Continue Draft'
+                          : 'Give Feedback'}
                     </button>
                   </div>
                 </div>

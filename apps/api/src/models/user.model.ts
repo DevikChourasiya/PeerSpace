@@ -8,6 +8,10 @@ export interface IUser extends Document {
   passwordHash: string;
   role: UserRole;
   status: UserStatus;
+  isEmailVerified: boolean;
+  emailVerificationTokenHash?: string;
+  emailVerificationExpires?: Date;
+  emailVerificationSentAt?: Date;
   department?: string;
   classSection?: string;
   studentId?: string;
@@ -64,6 +68,21 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
       required: true,
       index: true,
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    emailVerificationTokenHash: {
+      type: String,
+      index: true,
+    },
+    emailVerificationExpires: {
+      type: Date,
+    },
+    emailVerificationSentAt: {
+      type: Date,
+    },
     department: {
       type: String,
       trim: true,
@@ -99,9 +118,15 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
     toJSON: {
       transform: (_doc, ret: Record<string, unknown>) => {
         ret.id = (ret._id as mongoose.Types.ObjectId).toString();
+        if (ret.isEmailVerified === undefined) {
+          ret.isEmailVerified = ret.status === UserStatus.ACTIVE || ret.role === UserRole.ADMIN;
+        }
         delete ret._id;
         delete ret.__v;
         delete ret.passwordHash;
+        delete ret.emailVerificationTokenHash;
+        delete ret.emailVerificationExpires;
+        delete ret.emailVerificationSentAt;
         return ret;
       },
     },

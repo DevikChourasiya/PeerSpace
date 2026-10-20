@@ -39,12 +39,16 @@ export const requireAuth = async (
       return;
     }
 
+    const isEmailVerified =
+      user.isEmailVerified ?? (user.status === UserStatus.ACTIVE || user.role === UserRole.ADMIN);
+
     req.user = {
       id: user._id.toString(),
       name: user.name,
       email: user.email,
       role: user.role,
       status: user.status,
+      isEmailVerified,
     };
 
     next();
@@ -115,8 +119,14 @@ export const requireApprovedMembership = (
     let message = 'Your account is not approved for membership access.';
 
     if (isPending) {
-      code = 'MEMBERSHIP_PENDING';
-      message = 'Your account is pending approval by an instructor or administrator.';
+      if (req.user.isEmailVerified === false) {
+        code = 'EMAIL_NOT_VERIFIED';
+        message =
+          'Email verification required. Please verify your email address before requesting membership approval.';
+      } else {
+        code = 'MEMBERSHIP_PENDING';
+        message = 'Your account is pending approval by an instructor or administrator.';
+      }
     } else if (isSuspended) {
       code = 'ACCOUNT_SUSPENDED';
       message = 'Your account has been suspended. Please contact an administrator.';

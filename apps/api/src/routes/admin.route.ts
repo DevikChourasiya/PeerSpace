@@ -6,6 +6,7 @@ import {
   rejectStudent,
   suspendUser,
   reactivateUser,
+  deleteSuspendedUser,
   getAuditLogs,
 } from '../controllers/admin.controller.js';
 import {
@@ -26,6 +27,10 @@ import {
   transitionRoundStatus,
   getRoundProgress,
 } from '../controllers/round.controller.js';
+import {
+  getModerationReports,
+  resolveModerationReport,
+} from '../controllers/moderation.controller.js';
 import { requireAuth, requireRole } from '../middlewares/auth.js';
 import { UserRole } from '@peerspace/shared';
 
@@ -47,6 +52,8 @@ adminRouter.post('/memberships/:id/suspend', suspendUser);
 adminRouter.patch('/users/:id/suspend', suspendUser); // alias
 adminRouter.post('/memberships/:id/reactivate', reactivateUser);
 adminRouter.patch('/users/:id/reactivate', reactivateUser); // alias
+adminRouter.delete('/memberships/:id', deleteSuspendedUser);
+adminRouter.delete('/users/:id', deleteSuspendedUser); // alias
 
 // Questionnaire builder endpoints
 adminRouter.get('/questionnaires', listQuestionnaires);
@@ -68,3 +75,7 @@ adminRouter.get('/rounds/:id/progress', getRoundProgress);
 
 // Audit logging endpoint
 adminRouter.get('/audit-logs', getAuditLogs);
+
+// Moderation queue endpoints
+adminRouter.get('/moderation/reports', getModerationReports);
+adminRouter.post('/moderation/reports/:id/resolve', resolveModerationReport);

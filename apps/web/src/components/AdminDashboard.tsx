@@ -6,33 +6,33 @@ import {
   XCircle,
   AlertTriangle,
   RefreshCw,
-  LogOut,
   Users,
   Search,
   Check,
   X,
   Ban,
   RotateCcw,
-  UserCheck,
   Calendar,
   FileText,
   Activity,
+  Flag,
+  Trash2,
 } from 'lucide-react';
-import { UserRole, UserStatus, type UserResponse } from '@peerspace/shared';
-import { useAuth } from '../hooks/useAuth';
+import { UserRole, UserStatus, ReportStatus, type UserResponse } from '@peerspace/shared';
 import { useAdmin } from '../hooks/useAdmin';
+import { useModerationReports } from '../hooks/useModeration';
 import { FeedbackRoundManager } from './FeedbackRoundManager';
 import { QuestionnaireBuilder } from './QuestionnaireBuilder';
 import { AdminAuditLogs } from './AdminAuditLogs';
+import { AdminModerationQueue } from './AdminModerationQueue';
 
 interface AdminDashboardProps {
   user: UserResponse;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
-  const { logoutMutation } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    'pending' | 'rounds' | 'questionnaires' | 'roster' | 'audit'
+    'pending' | 'rounds' | 'questionnaires' | 'roster' | 'audit' | 'moderation'
   >('pending');
   const [rosterStatusFilter, setRosterStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -56,6 +56,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   } | null>(null);
   const [suspendReason, setSuspendReason] = useState<string>('');
 
+  const [deletingUser, setDeletingUser] = useState<{
+    id: string;
+    name: string;
+    email: string;
+  } | null>(null);
+
   const {
     pendingQuery,
     allMembersQuery,
@@ -63,8 +69,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     rejectMutation,
     suspendMutation,
     reactivateMutation,
+    permanentlyDeleteMutation,
     invalidateAdminQueries,
   } = useAdmin(rosterStatusFilter || undefined);
+
+  const { data: pendingReportsData } = useModerationReports(1, 1, ReportStatus.PENDING, {
+    enabled: user.role === UserRole.ADMIN,
+  });
+  const pendingReportsCount = pendingReportsData?.total ?? 0;
 
   // Security guard: verify role
   if (user.role !== UserRole.ADMIN) {
@@ -160,153 +172,170 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deletingUser) return;
+    setFeedback(null);
+    try {
+      await permanentlyDeleteMutation.mutateAsync(deletingUser.id);
+      setFeedback({
+        type: 'success',
+        message: `Account for "${deletingUser.name}" permanently deleted.`,
+      });
+      setDeletingUser(null);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to permanently delete account.';
+      setFeedback({ type: 'error', message: errorMsg });
+    }
+  };
+
   const isRefreshing = pendingQuery.isFetching || allMembersQuery.isFetching;
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 py-6 px-4 sm:px-6">
-      {/* Top Admin Banner */}
-      <div className="overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-slate-900/10">
-        <div className="bg-slate-900 p-6 sm:p-8 text-white relative">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300">
-                  <Shield className="h-3.5 w-3.5 text-amber-400" />
-                  Administrator Portal
-                </span>
-                <span className="inline-flex items-center rounded-full bg-slate-800 border border-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-300">
-                  Stage 4 Management
-                </span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                Institutional Membership & Access Control
-              </h1>
-              <p className="text-sm text-slate-300">
-                Review pending student applicants, authorize workspace memberships, and manage user
-                states.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => invalidateAdminQueries()}
-                disabled={isRefreshing}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-60"
-                aria-label="Refresh roster data"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span>{isRefreshing ? 'Syncing...' : 'Sync Roster'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => logoutMutation.mutate()}
-                disabled={logoutMutation.isPending}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                Sign Out
-              </button>
-            </div>
+      {/* Top Admin Heading */}
+      <div className="bg-white dark:bg-darkSurface-card rounded-2xl border border-lavender-200/80 dark:border-darkSurface-border p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800/40 px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-300">
+              <Shield className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              Administrator Console
+            </span>
+            <span className="text-xs text-slate-500 dark:text-darkSurface-muted font-medium">
+              <span>{user.name}</span> ({user.email})
+            </span>
           </div>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-lavender-100 tracking-tight">
+            Institutional Membership & Access Control
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-darkSurface-muted">
+            Review pending student applicants, authorize workspace memberships, and manage user
+            states.
+          </p>
         </div>
 
-        {/* Current Admin Identity Strip */}
-        <div className="border-t border-slate-100 bg-slate-50 px-6 py-3 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-600">
-          <div className="flex items-center gap-4">
-            <span className="font-semibold text-slate-800">
-              Authenticated Admin: <span className="font-normal">{user.name}</span>
-            </span>
-            <span className="font-mono text-slate-500">{user.email}</span>
-          </div>
-          <span className="inline-flex items-center gap-1.5 font-medium text-amber-700">
-            <UserCheck className="h-4 w-4" />
-            Full Institutional Governance Authorization
-          </span>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => invalidateAdminQueries()}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-lavender-200 dark:border-darkSurface-border bg-lavender-50/50 dark:bg-darkSurface-bg hover:bg-lavender-100 dark:hover:bg-darkSurface-cardHover text-xs font-semibold text-slate-700 dark:text-lavender-200 transition-colors disabled:opacity-50"
+            aria-label="Refresh roster data"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin text-lavender-500' : ''}`}
+            />
+            <span>Sync Roster</span>
+          </button>
         </div>
       </div>
 
-      {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Pending Card */}
+      {/* Metric Cards - Tactile macOS Spatial Pastel Surfaces */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Pending Card (Peach) */}
         <div
           onClick={() => setActiveTab('pending')}
-          className={`cursor-pointer rounded-xl border p-5 transition-all shadow-xs ${
+          className={`cursor-pointer rounded-2xl border p-5 transition-all shadow-xs ${
             activeTab === 'pending'
-              ? 'bg-amber-50/50 border-amber-300 ring-2 ring-amber-400/20'
-              : 'bg-white border-slate-200 hover:border-amber-200'
+              ? 'bg-[#FDF2EC] dark:bg-amber-950/40 border-[#F47B55] ring-2 ring-[#F47B55]/20'
+              : 'bg-[#FDF2EC]/70 dark:bg-amber-950/20 border-[#F47B55]/25 hover:border-[#F47B55]'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#F47B55]">
               Pending Approvals
             </span>
-            <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">
+            <div className="h-8 w-8 rounded-lg bg-white/80 dark:bg-amber-900/40 border border-[#F47B55]/20 flex items-center justify-center text-[#F47B55]">
               <Clock className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <span className="text-3xl font-extrabold text-[#1C1B18] dark:text-[#F5F2EB] tracking-tight">
               {pendingStudents.length}
             </span>
-            <span className="text-xs text-slate-500">awaiting review</span>
+            <span className="text-xs text-[#5C5952] dark:text-[#B5B0A4]">awaiting review</span>
           </div>
         </div>
 
-        {/* Total Members Card */}
+        {/* Total Members Card (Sky) */}
         <div
           onClick={() => {
             setActiveTab('roster');
             setRosterStatusFilter('');
           }}
-          className={`cursor-pointer rounded-xl border p-5 transition-all shadow-xs ${
+          className={`cursor-pointer rounded-2xl border p-5 transition-all shadow-xs ${
             activeTab === 'roster' && !rosterStatusFilter
-              ? 'bg-blue-50/50 border-blue-300 ring-2 ring-blue-400/20'
-              : 'bg-white border-slate-200 hover:border-blue-200'
+              ? 'bg-[#EDF5FD] dark:bg-sky-950/40 border-[#5B9CF6] ring-2 ring-[#5B9CF6]/20'
+              : 'bg-[#EDF5FD]/70 dark:bg-sky-950/20 border-[#5B9CF6]/25 hover:border-[#5B9CF6]'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#5B9CF6]">
               Total Roster Accounts
             </span>
-            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-700">
+            <div className="h-8 w-8 rounded-lg bg-white/80 dark:bg-sky-900/40 border border-[#5B9CF6]/20 flex items-center justify-center text-[#5B9CF6]">
               <Users className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <span className="text-3xl font-extrabold text-[#1C1B18] dark:text-[#F5F2EB] tracking-tight">
               {allMembers.length}
             </span>
-            <span className="text-xs text-slate-500">registered users</span>
+            <span className="text-xs text-[#5C5952] dark:text-[#B5B0A4]">registered users</span>
           </div>
         </div>
 
-        {/* Active Members Card */}
+        {/* Active Members Card (Mint) */}
         <div
           onClick={() => {
             setActiveTab('roster');
             setRosterStatusFilter('active');
           }}
-          className={`cursor-pointer rounded-xl border p-5 transition-all shadow-xs ${
+          className={`cursor-pointer rounded-2xl border p-5 transition-all shadow-xs ${
             activeTab === 'roster' && rosterStatusFilter === 'active'
-              ? 'bg-emerald-50/50 border-emerald-300 ring-2 ring-emerald-400/20'
-              : 'bg-white border-slate-200 hover:border-emerald-200'
+              ? 'bg-[#EEF9F2] dark:bg-emerald-950/40 border-[#34A866] ring-2 ring-[#34A866]/20'
+              : 'bg-[#EEF9F2]/70 dark:bg-emerald-950/20 border-[#34A866]/25 hover:border-[#34A866]'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#34A866]">
               Active Members
             </span>
-            <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+            <div className="h-8 w-8 rounded-lg bg-white/80 dark:bg-emerald-900/40 border border-[#34A866]/20 flex items-center justify-center text-[#34A866]">
               <CheckCircle2 className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <span className="text-3xl font-extrabold text-[#1C1B18] dark:text-[#F5F2EB] tracking-tight">
               {allMembers.filter((m) => m.status === UserStatus.ACTIVE).length}
             </span>
-            <span className="text-xs text-slate-500">cleared for evaluation</span>
+            <span className="text-xs text-[#5C5952] dark:text-[#B5B0A4]">
+              cleared for evaluation
+            </span>
+          </div>
+        </div>
+
+        {/* Moderation Queue Card (Lavender) */}
+        <div
+          onClick={() => setActiveTab('moderation')}
+          className={`cursor-pointer rounded-2xl border p-5 transition-all shadow-xs ${
+            activeTab === 'moderation'
+              ? 'bg-[#F2F0FC] dark:bg-purple-950/40 border-[#6C5CE7] ring-2 ring-[#6C5CE7]/20'
+              : 'bg-[#F2F0FC]/70 dark:bg-purple-950/20 border-[#6C5CE7]/25 hover:border-[#6C5CE7]'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#6C5CE7]">
+              Moderation Queue
+            </span>
+            <div className="h-8 w-8 rounded-lg bg-white/80 dark:bg-purple-900/40 border border-[#6C5CE7]/20 flex items-center justify-center text-[#6C5CE7]">
+              <Flag className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-[#1C1B18] dark:text-[#F5F2EB] tracking-tight">
+              {pendingReportsCount}
+            </span>
+            <span className="text-xs text-[#5C5952] dark:text-[#B5B0A4]">flagged comments</span>
           </div>
         </div>
       </div>
@@ -341,20 +370,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       )}
 
       {/* Main Tabs Navigation */}
-      <div className="border-b border-slate-200">
-        <nav className="flex space-x-6 text-sm font-semibold">
+      <div className="bg-white dark:bg-darkSurface-card rounded-xl border border-slate-200/80 dark:border-darkSurface-border px-4 pt-1 shadow-sm overflow-x-auto">
+        <nav className="flex space-x-6 text-sm font-semibold min-w-max border-b border-slate-100 dark:border-darkSurface-border/60">
           <button
             type="button"
             onClick={() => setActiveTab('pending')}
-            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 px-1 border-b-2 -mb-[1px] flex items-center gap-2 transition-colors ${
               activeTab === 'pending'
-                ? 'border-amber-500 text-amber-900 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-amber-600 text-amber-700 dark:border-amber-400 dark:text-amber-400 font-bold'
+                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <span>Pending Approvals</span>
             {pendingStudents.length > 0 && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 font-bold">
+              <span className="rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 px-2 py-0.5 text-xs font-bold">
                 {pendingStudents.length}
               </span>
             )}
@@ -363,10 +392,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           <button
             type="button"
             onClick={() => setActiveTab('rounds')}
-            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 px-1 border-b-2 -mb-[1px] flex items-center gap-2 transition-colors ${
               activeTab === 'rounds'
-                ? 'border-blue-600 text-blue-900 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-blue-600 text-blue-600 dark:border-sky-400 dark:text-sky-400 font-bold'
+                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <Calendar className="h-4 w-4" />
@@ -376,10 +405,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           <button
             type="button"
             onClick={() => setActiveTab('questionnaires')}
-            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 px-1 border-b-2 -mb-[1px] flex items-center gap-2 transition-colors ${
               activeTab === 'questionnaires'
-                ? 'border-blue-600 text-blue-900 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-blue-600 text-blue-600 dark:border-sky-400 dark:text-sky-400 font-bold'
+                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <FileText className="h-4 w-4" />
@@ -389,14 +418,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           <button
             type="button"
             onClick={() => setActiveTab('roster')}
-            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 px-1 border-b-2 -mb-[1px] flex items-center gap-2 transition-colors ${
               activeTab === 'roster'
-                ? 'border-blue-600 text-blue-900 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-blue-600 text-blue-600 dark:border-sky-400 dark:text-sky-400 font-bold'
+                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <span>Institutional Account Roster</span>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+            <span className="rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 text-xs">
               {allMembers.length}
             </span>
           </button>
@@ -404,14 +433,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           <button
             type="button"
             onClick={() => setActiveTab('audit')}
-            className={`pb-3 px-1 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 px-1 border-b-2 -mb-[1px] flex items-center gap-2 transition-colors ${
               activeTab === 'audit'
-                ? 'border-blue-600 text-blue-900 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-blue-600 text-blue-600 dark:border-sky-400 dark:text-sky-400 font-bold'
+                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <Activity className="h-4 w-4" />
             <span>Audit Logs</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('moderation')}
+            className={`pb-3 px-1 border-b-2 -mb-[1px] flex items-center gap-2 transition-colors ${
+              activeTab === 'moderation'
+                ? 'border-blue-600 text-blue-600 dark:border-sky-400 dark:text-sky-400 font-bold'
+                : 'border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
+            }`}
+          >
+            <Flag className="h-4 w-4" />
+            <span>Moderation Queue</span>
+            {pendingReportsCount > 0 && (
+              <span className="rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 px-2 py-0.5 text-xs font-bold">
+                {pendingReportsCount}
+              </span>
+            )}
           </button>
         </nav>
       </div>
@@ -450,23 +497,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  <tr className="border-b border-[#E4E0D8] dark:border-[#33302B] bg-[#F5F2EB]/75 dark:bg-[#1C1A17]/75 text-[11px] font-bold uppercase tracking-wider text-[#6E6A61] dark:text-[#8E8A80]">
                     <th className="py-3 px-4">Student Name</th>
                     <th className="py-3 px-4">University Email</th>
+                    <th className="py-3 px-4">Email Status</th>
                     <th className="py-3 px-4">Registration Date</th>
-                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Membership</th>
                     <th className="py-3 px-4 text-right">Verification Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-[#E4E0D8]/60 dark:divide-[#33302B]/60 text-xs">
                   {pendingStudents.map((student) => {
                     const isProcessing = approveMutation.isPending || rejectMutation.isPending;
+                    const isEmailVerified = student.isEmailVerified !== false;
 
                     return (
-                      <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3 px-4 font-semibold text-slate-900">{student.name}</td>
-                        <td className="py-3 px-4 font-mono text-slate-600">{student.email}</td>
-                        <td className="py-3 px-4 text-slate-500">
+                      <tr
+                        key={student.id}
+                        className="hover:bg-[#F5F2EB]/50 dark:hover:bg-[#1C1A17]/50 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-semibold text-[#1C1B18] dark:text-[#F5F2EB]">
+                          {student.name}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[#5C5952] dark:text-[#B5B0A4]">
+                          {student.email}
+                        </td>
+                        <td className="py-3 px-4">
+                          {isEmailVerified ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#EEF9F2] dark:bg-emerald-950/40 border border-[#34A866]/30 px-2.5 py-0.5 text-[11px] font-semibold text-[#34A866] dark:text-emerald-400">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Email Verified
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#FDF2EC] dark:bg-amber-950/40 border border-[#F47B55]/30 px-2.5 py-0.5 text-[11px] font-semibold text-[#F47B55] dark:text-amber-400">
+                              <Clock className="h-3 w-3" />
+                              Unverified
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-[#6E6A61] dark:text-[#8E8A80]">
                           {new Date(student.createdAt).toLocaleDateString(undefined, {
                             year: 'numeric',
                             month: 'short',
@@ -476,7 +545,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                           })}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 capitalize">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#FDF2EC] dark:bg-amber-950/40 border border-[#F47B55]/20 px-2.5 py-0.5 text-[11px] font-semibold text-[#F47B55] capitalize">
                             <Clock className="h-3 w-3" />
                             {student.status}
                           </span>
@@ -487,8 +556,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                             <button
                               type="button"
                               onClick={() => handleApprove(student.id, student.name)}
-                              disabled={isProcessing}
-                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-xs disabled:opacity-50"
+                              disabled={isProcessing || !isEmailVerified}
+                              title={
+                                !isEmailVerified
+                                  ? 'Cannot approve student account because their email address has not been verified.'
+                                  : `Approve ${student.name}`
+                              }
+                              className="inline-flex items-center gap-1 rounded-xl bg-[#34A866] hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                               aria-label={`Approve ${student.name}`}
                             >
                               <Check className="h-3.5 w-3.5" />
@@ -503,7 +577,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                                 setRejectReason('');
                               }}
                               disabled={isProcessing}
-                              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-100 transition-colors disabled:opacity-50"
                               aria-label={`Decline ${student.name}`}
                             >
                               <X className="h-3.5 w-3.5" />
@@ -654,15 +728,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                             )}
 
                             {member.status === UserStatus.SUSPENDED && (
-                              <button
-                                type="button"
-                                onClick={() => handleReactivate(member.id, member.name)}
-                                aria-label={`Reactivate ${member.name}`}
-                                className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
-                              >
-                                <RotateCcw className="h-3 w-3" />
-                                <span>Reactivate</span>
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleReactivate(member.id, member.name)}
+                                  aria-label={`Reactivate ${member.name}`}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                  <span>Reactivate</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingUser(member)}
+                                  disabled={isSelf}
+                                  aria-label={`Permanently delete ${member.name}`}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors disabled:opacity-40"
+                                  title="Permanently delete suspended member"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
                             )}
 
                             {member.status === UserStatus.PENDING && (
@@ -689,6 +776,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
       {/* Tab 5: Administrator Audit Logs */}
       {activeTab === 'audit' && <AdminAuditLogs />}
+
+      {/* Tab 6: Feedback Moderation Queue */}
+      {activeTab === 'moderation' && <AdminModerationQueue />}
 
       {/* Reject Confirmation Modal */}
       {rejectingStudent && (
@@ -809,6 +899,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                 className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50"
               >
                 {suspendMutation.isPending ? 'Suspending...' : 'Confirm Suspension'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent Deletion Confirmation Modal */}
+      {deletingUser && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-darkSurface-card p-6 shadow-2xl border border-rose-200 dark:border-rose-900/40 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3
+                  id="delete-dialog-title"
+                  className="text-base font-bold text-slate-900 dark:text-lavender-100"
+                >
+                  Permanently Delete Account
+                </h3>
+                <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
+                  Warning: Consequential & Irreversible Action
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-darkSurface-muted leading-relaxed">
+              Are you sure you want to permanently delete the suspended account for{' '}
+              <strong className="text-slate-900 dark:text-lavender-100">{deletingUser.name}</strong>{' '}
+              (<span className="font-mono">{deletingUser.email}</span>)?
+            </p>
+
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl text-xs text-amber-900 dark:text-amber-300 space-y-1">
+              <p className="font-semibold">Security & Data Retention Safeguards:</p>
+              <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-amber-800 dark:text-amber-400">
+                <li>Active sessions will be immediately revoked.</li>
+                <li>Submitted evaluations and peer feedback ratings are preserved.</li>
+                <li>An immutable audit log event (USER_DELETED) will be recorded.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-darkSurface-border">
+              <button
+                type="button"
+                onClick={() => setDeletingUser(null)}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-darkSurface-border text-xs font-semibold text-slate-600 dark:text-lavender-200 hover:bg-slate-50 dark:hover:bg-darkSurface-cardHover"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={permanentlyDeleteMutation.isPending}
+                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50"
+              >
+                {permanentlyDeleteMutation.isPending ? 'Deleting...' : 'Permanently Delete'}
               </button>
             </div>
           </div>

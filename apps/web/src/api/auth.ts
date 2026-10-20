@@ -93,3 +93,37 @@ export async function logoutUser(): Promise<void> {
 
   await handleResponse<{ success: boolean; message: string }>(response);
 }
+
+export async function verifyEmailToken(
+  token: string
+): Promise<{ success: boolean; message: string; user?: UserResponse }> {
+  const response = await fetch('/api/auth/verify-email', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ token }),
+  });
+
+  return handleResponse<{ success: boolean; message: string; user?: UserResponse }>(response);
+}
+
+export async function resendVerificationEmail(
+  email: string
+): Promise<{ success: boolean; message: string; meta?: { retryAfterSeconds?: number } }> {
+  const response = await fetch('/api/auth/resend-verification', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ email }),
+  });
+
+  return handleResponse<{
+    success: boolean;
+    message: string;
+    meta?: { retryAfterSeconds?: number };
+  }>(response);
+}

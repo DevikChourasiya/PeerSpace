@@ -21,6 +21,7 @@ export const AdminStudentItemSchema = z.object({
   ]),
   createdAt: z.string().datetime().or(z.date()),
   statusReason: z.string().optional(),
+  isEmailVerified: z.boolean().optional(),
 });
 
 export type AdminStudentItem = z.infer<typeof AdminStudentItemSchema>;

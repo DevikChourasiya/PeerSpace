@@ -77,6 +77,7 @@ export const ReceivedFeedbackItemSchema = z.object({
       rating: z.number().optional(),
       value: z.any().optional(),
       comment: z.string().optional(),
+      isCommentHidden: z.boolean().optional(),
     })
   ),
 });

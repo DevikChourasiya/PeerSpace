@@ -6,6 +6,7 @@ declare module 'express-session' {
     userId: string;
     role: UserRole;
     status: UserStatus;
+    isEmailVerified?: boolean;
   }
 }
 
@@ -18,6 +19,7 @@ declare global {
         email: string;
         role: UserRole;
         status: UserStatus;
+        isEmailVerified?: boolean;
       };
     }
   }

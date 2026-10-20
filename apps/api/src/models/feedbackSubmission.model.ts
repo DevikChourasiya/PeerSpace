@@ -7,6 +7,7 @@ export interface IFeedbackResponseItem {
   value?: any;
   rating?: number;
   comment?: string;
+  isCommentHidden?: boolean;
 }
 
 export interface IFeedbackSubmission extends Document {
@@ -29,6 +30,7 @@ const feedbackResponseItemSchema = new Schema<IFeedbackResponseItem>(
     value: { type: Schema.Types.Mixed },
     rating: { type: Number, min: 0, max: 100 },
     comment: { type: String, maxlength: 2000 },
+    isCommentHidden: { type: Boolean, default: false },
   },
   { _id: false }
 );

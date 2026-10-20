@@ -97,6 +97,36 @@ describe('Authentication & Role-Based Access Control (Stage 2)', () => {
       expect(res.body.error.message).toMatch(/already exists/i);
     });
 
+    it('trims leading/trailing whitespace and normalizes email casing upon registration', async () => {
+      const unnormalizedEmail = `   Trimmed.User.${timestamp}@University.EDU   `;
+      const expectedNormalized = `trimmed.user.${timestamp}@university.edu`;
+
+      const res = await request(app).post('/api/auth/register').send({
+        name: '   Whitespace Student   ',
+        email: unnormalizedEmail,
+        password: 'SecurePassword123!',
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.user.email).toBe(expectedNormalized);
+      expect(res.body.user.name).toBe('Whitespace Student');
+
+      createdUserIds.push(res.body.user.id);
+    });
+
+    it('rejects email addresses containing internal whitespace or malformed syntax', async () => {
+      const res = await request(app).post('/api/auth/register').send({
+        name: 'Invalid Whitespace Email',
+        email: 'invalid email@university.edu',
+        password: 'SecurePassword123!',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
     it('never allows public registration to grant admin privileges or self-approve membership', async () => {
       const exploitData = {
         name: 'Privilege Escalation Attempt',
@@ -270,7 +300,18 @@ describe('Authentication & Role-Based Access Control (Stage 2)', () => {
       adminCookie = getSessionCookie(adminLoginRes);
     });
 
-    it('denies access to protected membership routes for pending student with 403 MEMBERSHIP_PENDING', async () => {
+    it('denies access to protected membership routes for pending unverified student with 403 EMAIL_NOT_VERIFIED', async () => {
+      const res = await request(app).get('/api/auth/membership-test').set('Cookie', studentCookie);
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('EMAIL_NOT_VERIFIED');
+      expect(res.body.error.message).toMatch(/verification required/i);
+    });
+
+    it('denies access to protected membership routes for pending verified student with 403 MEMBERSHIP_PENDING', async () => {
+      await User.findByIdAndUpdate(studentUserId, { isEmailVerified: true });
+
       const res = await request(app).get('/api/auth/membership-test').set('Cookie', studentCookie);
 
       expect(res.status).toBe(403);
@@ -322,6 +363,234 @@ describe('Authentication & Role-Based Access Control (Stage 2)', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.user.role).toBe(UserRole.ADMIN);
+    });
+  });
+
+  describe('4. Email Verification & Administrator Approval Account Lifecycle', () => {
+    const lifecycleTime = Date.now();
+    const candidateData = {
+      name: 'Maya Lin',
+      email: `maya.lifecycle.${lifecycleTime}@university.edu`,
+      password: 'LifecyclePass2026!',
+    };
+    let candidateId: string;
+    let candidateCookie: string;
+    let candidateToken: string;
+
+    it('handles registration email delivery failure with recoverable error (502)', async () => {
+      const { setMockDeliveryFailure } = await import('../src/services/email.service.js');
+      setMockDeliveryFailure(true);
+
+      const failRes = await request(app)
+        .post('/api/auth/register')
+        .send({
+          name: 'Delivery Failure User',
+          email: `failure.${lifecycleTime}@university.edu`,
+          password: 'Password123!',
+        });
+
+      expect(failRes.status).toBe(502);
+      expect(failRes.body.error.code).toBe('EMAIL_DELIVERY_FAILED');
+
+      // Ensure no dangling record was saved
+      const userInDb = await User.findOne({ email: `failure.${lifecycleTime}@university.edu` });
+      expect(userInDb).toBeNull();
+
+      setMockDeliveryFailure(false);
+    });
+
+    it('registers candidate student and dispatches verification token', async () => {
+      const { getLastSentEmail } = await import('../src/services/email.service.js');
+
+      const res = await request(app).post('/api/auth/register').send(candidateData);
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.user.isEmailVerified).toBe(false);
+      expect(res.body.user.status).toBe(UserStatus.PENDING);
+
+      candidateId = res.body.user.id;
+      createdUserIds.push(candidateId);
+
+      const sentEmail = getLastSentEmail();
+      expect(sentEmail).toBeDefined();
+      expect(sentEmail?.to).toBe(candidateData.email.toLowerCase());
+      expect(sentEmail?.token).toBeDefined();
+      candidateToken = sentEmail!.token!;
+    });
+
+    it('blocks unverified candidate from protected student features with 403 EMAIL_NOT_VERIFIED', async () => {
+      const loginRes = await request(app).post('/api/auth/login').send({
+        email: candidateData.email,
+        password: candidateData.password,
+      });
+      expect(loginRes.status).toBe(200);
+      expect(loginRes.body.user.isEmailVerified).toBe(false);
+      candidateCookie = (loginRes.headers['set-cookie'] as unknown as string[])[0];
+
+      const accessRes = await request(app)
+        .get('/api/auth/membership-test')
+        .set('Cookie', candidateCookie);
+
+      expect(accessRes.status).toBe(403);
+      expect(accessRes.body.error.code).toBe('EMAIL_NOT_VERIFIED');
+    });
+
+    it('rejects administrator approval for unverified candidate with 400 EMAIL_NOT_VERIFIED', async () => {
+      // Login admin
+      const adminLoginRes = await request(app).post('/api/auth/login').send({
+        email: testAdminData.email,
+        password: testAdminData.password,
+      });
+      const currentAdminCookie = (adminLoginRes.headers['set-cookie'] as unknown as string[])[0];
+
+      const approveRes = await request(app)
+        .post(`/api/admin/memberships/${candidateId}/approve`)
+        .set('Cookie', currentAdminCookie);
+
+      expect(approveRes.status).toBe(400);
+      expect(approveRes.body.error.code).toBe('EMAIL_NOT_VERIFIED');
+    });
+
+    it('rejects ordinary student attempting to approve accounts with 403 FORBIDDEN', async () => {
+      const res = await request(app)
+        .post(`/api/admin/memberships/${candidateId}/approve`)
+        .set('Cookie', candidateCookie);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('enforces 60-second cooldown rate limit on resending verification email', async () => {
+      // First resend immediately succeeds
+      // Wait: candidate was just registered, emailVerificationSentAt was just set!
+      // So calling resend immediately should trigger rate limit 429
+      const rateLimitRes = await request(app)
+        .post('/api/auth/resend-verification')
+        .send({ email: candidateData.email });
+
+      expect(rateLimitRes.status).toBe(429);
+      expect(rateLimitRes.body.error.code).toBe('RATE_LIMIT_EXCEEDED');
+      expect(rateLimitRes.body.meta.retryAfterSeconds).toBeGreaterThan(0);
+    });
+
+    it('rejects verification with an invalid token', async () => {
+      const res = await request(app)
+        .post('/api/auth/verify-email')
+        .send({ token: 'definitely-invalid-and-malformed-token' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('INVALID_TOKEN');
+    });
+
+    it('rejects verification with an expired token', async () => {
+      // Backdate expiration in DB to simulate expired token
+      await User.findByIdAndUpdate(candidateId, {
+        emailVerificationExpires: new Date(Date.now() - 10000),
+      });
+
+      const res = await request(app).post('/api/auth/verify-email').send({ token: candidateToken });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('TOKEN_EXPIRED');
+
+      // Reset expiration back to future
+      await User.findByIdAndUpdate(candidateId, {
+        emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      });
+    });
+
+    it('verifies email successfully with valid token', async () => {
+      const res = await request(app).post('/api/auth/verify-email').send({ token: candidateToken });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.user.isEmailVerified).toBe(true);
+
+      const dbCandidate = await User.findById(candidateId);
+      expect(dbCandidate?.isEmailVerified).toBe(true);
+      expect(dbCandidate?.emailVerificationTokenHash).toBeUndefined();
+    });
+
+    it('rejects single-use token reuse', async () => {
+      const res = await request(app).post('/api/auth/verify-email').send({ token: candidateToken });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('INVALID_TOKEN');
+    });
+
+    it('rejects resending verification email for an already-verified user', async () => {
+      const res = await request(app)
+        .post('/api/auth/resend-verification')
+        .send({ email: candidateData.email });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('ALREADY_VERIFIED');
+    });
+
+    it('blocks verified candidate until administrator approves (403 MEMBERSHIP_PENDING)', async () => {
+      // Candidate logs in with verified email
+      const loginRes = await request(app).post('/api/auth/login').send({
+        email: candidateData.email,
+        password: candidateData.password,
+      });
+      const verifiedCookie = (loginRes.headers['set-cookie'] as unknown as string[])[0];
+
+      const accessRes = await request(app)
+        .get('/api/auth/membership-test')
+        .set('Cookie', verifiedCookie);
+
+      expect(accessRes.status).toBe(403);
+      expect(accessRes.body.error.code).toBe('MEMBERSHIP_PENDING');
+    });
+
+    it('allows administrator to approve the verified candidate', async () => {
+      const adminLoginRes = await request(app).post('/api/auth/login').send({
+        email: testAdminData.email,
+        password: testAdminData.password,
+      });
+      const currentAdminCookie = (adminLoginRes.headers['set-cookie'] as unknown as string[])[0];
+
+      const approveRes = await request(app)
+        .post(`/api/admin/memberships/${candidateId}/approve`)
+        .set('Cookie', currentAdminCookie);
+
+      expect(approveRes.status).toBe(200);
+      expect(approveRes.body.success).toBe(true);
+      expect(approveRes.body.user.status).toBe(UserStatus.ACTIVE);
+    });
+
+    it('grants approved candidate full access to protected student features', async () => {
+      const loginRes = await request(app).post('/api/auth/login').send({
+        email: candidateData.email,
+        password: candidateData.password,
+      });
+      const approvedCookie = (loginRes.headers['set-cookie'] as unknown as string[])[0];
+
+      const accessRes = await request(app)
+        .get('/api/auth/membership-test')
+        .set('Cookie', approvedCookie);
+
+      expect(accessRes.status).toBe(200);
+      expect(accessRes.body.success).toBe(true);
+      expect(accessRes.body.message).toMatch(/Active membership verified/i);
+    });
+
+    it('blocks suspended user from protected routes with 403 ACCOUNT_SUSPENDED', async () => {
+      await User.findByIdAndUpdate(candidateId, { status: UserStatus.SUSPENDED });
+
+      const loginRes = await request(app).post('/api/auth/login').send({
+        email: candidateData.email,
+        password: candidateData.password,
+      });
+      const suspendedCookie = (loginRes.headers['set-cookie'] as unknown as string[])[0];
+
+      const accessRes = await request(app)
+        .get('/api/auth/membership-test')
+        .set('Cookie', suspendedCookie);
+
+      expect(accessRes.status).toBe(403);
+      expect(accessRes.body.error.code).toBe('ACCOUNT_SUSPENDED');
     });
   });
 });

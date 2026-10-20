@@ -32,6 +32,17 @@ export const envSchema = z
       .min(16, 'ADMIN_PROVISION_SECRET must be at least 16 characters long')
       .optional()
       .default('development-admin-provision-secret-32chars'),
+    SMTP_HOST: z.string().optional(),
+    SMTP_PORT: z
+      .string()
+      .optional()
+      .default('587')
+      .transform((val) => parseInt(val, 10))
+      .pipe(z.number()),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASS: z.string().optional(),
+    SMTP_FROM: z.string().default('PeerSpace <no-reply@peerspace.edu>'),
+    APP_URL: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV === 'production' && data.SESSION_SECRET === DEFAULT_DEV_SESSION_SECRET) {

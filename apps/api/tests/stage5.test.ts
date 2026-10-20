@@ -95,6 +95,7 @@ describe('Stage 5: Feedback Rounds, Questionnaire Builder & Student Directory', 
       password: pendingPassword,
     });
     pendingStudentId = regPending.body.user.id;
+    await User.findByIdAndUpdate(pendingStudentId, { isEmailVerified: true });
     createdUserIds.push(pendingStudentId);
 
     const pendingLogin = await request(app).post('/api/auth/login').send({
